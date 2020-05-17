@@ -36,7 +36,7 @@ function Check-Environment {
 function Create-Folders {
     $SysmonFolder, $WinlogbeatFolder | 
     ForEach-Object {
-        if (Test-Path $_) { Remove-Item $_ -Recurse -Force}
+        if (Test-Path $_) { Remove-Item $_ -Recurse -Force }
         New-Item -Type Directory $_ | Out-Null
     }
 
@@ -83,7 +83,7 @@ function Download-Software {
         }
 
         elseif (($Winlogbeat -contains $_) -and ($Download.Keys -notcontains 'Winlogbeat')) { 
-            $Download.Add('Winlogbeat','https://artifacts.elastic.co/downloads/beats/winlogbeat/winlogbeat-6.2.4-windows-x86_64.zip ') 
+            $Download.Add('Winlogbeat','https://artifacts.elastic.co/downloads/beats/winlogbeat/winlogbeat-6.2.4-windows-x86_64.zip') 
         }
     }
 
