@@ -1,3 +1,28 @@
+Param(
+    [switch]$Remove
+)
+
+$Domain = 'vanilla.sky.net' # change me
+$DC1 = 'T800' # change me
+$FirstName = 'Elliot' # change me
+$LastName = 'Alderson' # change me
+$FullName = $LastName + ', ' + $FirstName
+$SamAccountName = $FirstName.ToLower() + '.' + $LastName.ToLower()
+$UserPrincipalName = $SamAccountName + '@' + $Domain
+$Password = ConvertTo-SecureString 'AdministratorPassword2020!' -AsPlainText -Force # change me
+$Description = 'Your Security Administrator' # change me
+$Group = 'Domain Admins' # change me
+
+function Check-Credentials {
+    $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $AdminId = [Security.Principal.WindowsBuiltInRole]::Administrator
+    $CurrentUser = New-Object Security.Principal.WindowsPrincipal($UserId)
+    $RunningAsAdmin = $CurrentUser.IsInRole($AdminId)
+    if (-not $RunningAsAdmin) { 
+        Write-Output '[x] This script requires administrator privileges.'
+        break
+    }
+}
 
 function Install-RequiredFeatures() {
     if ((Get-WindowsFeature AD-Domain-Services).InstallState -ne 'Installed') {
@@ -14,36 +39,57 @@ function Install-RequiredFeatures() {
 }
 
 function Create-Forest() {
-    if (-not (Get-Service | Where-Object { $_.Name -eq 'adws' })) {
-        $Domain = 'vanilla.sky.net'
-        Write-Host "[!] Deploying the '" + $Domain + "' domain."
-        $Password = ConvertTo-SecureString 'AdministratorPassword2020!' -AsPlainText -Force # change me
+    if ($env:COMPUTERNAME -ne $DC1) { Rename-Computer -NewName $DC1 -Force }
+    if ((Get-Service adws).Status -ne 'Running') {
+        Write-Host "[!] Deploying the '$Domain' domain."
         Install-ADDSForest -DomainName $Domain -InstallDns -SafeModeAdministratorPassword $Password -Force
+        break
     }
-    if ($env:COMPUTERNAME -ne 'T800') { Rename-Computer -NewName 'T800' -Force }
 }
 
 function Create-DomainAdmin() {
-    $FirstName = 'Elliot' # change me
-    $LastName = 'Alderson' # change me
-    $FullName = $LastName + ', ' + $FirstName
-    $SamAccountName = $FirstName.ToLower() + '.' + $LastName.ToLower()
-    $UserPrincipalName = $SamAccountName + '@' + $Domain
-    $Description = 'Your Security Administrator' # change me
-    $Group = 'Domain Admins' # change me
-    New-ADUser `
-        -GivenName $FirstName `
-        -Surname $LastName `
-        -Name $FullName `
-        -SamAccountName $SamAccountName `
-        -UserPrincipalName $UserPrincipalName `
-        -AccountPassword $Password `
-        -ChangePasswordAtLogon $true
-        -Description $Description 
-    Enable-ADAccount -Identity $SamAccountName
-    Add-ADGroupMember -Identity $Group -Members $SamAccountName
+    if ((Get-Service adws).Status -eq 'Running') {
+        $UserExists = [bool] (Get-ADUser -Filter { SamAccountName -eq $SamAccountName }) 
+        if ($UserExists -ne $true) {
+            Write-Host "[!] Creating a Domain Admin:"
+            New-ADUser `
+                -GivenName $FirstName `
+                -Surname $LastName `
+                -Name $FullName `
+                -SamAccountName $SamAccountName `
+                -UserPrincipalName $UserPrincipalName `
+                -AccountPassword $Password `
+                -ChangePasswordAtLogon $true `
+                -Description $Description 
+            Enable-ADAccount -Identity $SamAccountName
+            Add-ADGroupMember -Identity $Group -Members $SamAccountName
+            $DomainAdmin = (Get-ADUser $SamAccountName).UserPrincipalName
+            Write-Host " ---> $DomainAdmin"
+        } else { Write-Host "[+] The user '$UserPrincipalName' already exists." }
+    }
 }
 
-Install-RequiredFeatures
-Create-Forest
-Create-DomainAdmin
+function Remove-Skynet {
+    $SomethingChanged = $false
+    if ([bool] (Get-ADUser -Filter { SamAccountName -eq $SamAccountName })) { 
+        Remove-ADUser $SamAccountName 
+        $SomethingChanged = $true
+    }
+    if ((Get-WindowsFeature AD-Domain-Services).InstallState -eq 'Installed') {
+        (Remove-WindowsFeature AD-Domain-Services).ExitCode
+        $SomethingChanged = $true
+    } 
+    if ((Get-WindowsFeature DNS).InstallState -eq 'Installed') {
+        (Remove-WindowsFeature DNS).ExitCode
+        $SomethingChanged = $true
+    } 
+    if ($SomethingChanged) { Restart-Computer }
+}
+
+Check-Credentials
+if ($Remove) { Remove-Skynet }
+else {
+    Install-RequiredFeatures
+    Create-Forest
+    Create-DomainAdmin
+}
