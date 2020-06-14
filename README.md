@@ -5,10 +5,10 @@
 | ------ | ----------- |
 | [coffee.ps1](/coffee.ps1) | Keeps your machine from going to sleep. |
 | [Copy-File.ps1](Copy-File.ps1) | Copies a file onto multiple machines. |
-| [Deploy-Skynet.ps1](/Deploy-Skynet.ps1) | Deploys an 'Active Directory' domain. |
+| [Deploy-Skynet.ps1](/Deploy-Skynet.ps1) | Deploys an "Active Directory" domain. |
 | [Export-GPO.ps1](/Export-GPO.ps1) | Scrubs sensitive data from a GPO and then, makes it exportable. |
 | [Get-Info.ps1](Get-Info.ps1) | Gets the hostname, serial number, and current user of multiple machines. |
-| [Get-NetTrafficLights.ps1](Get-NetTrafficLights.ps1) | Pings a list of nodes and displays the results using 'traffic light' colors.|
+| [Get-NetTrafficLights.ps1](Get-NetTrafficLights.ps1) | Pings a list of nodes and displays the results using "traffic light" colors.|
 | [Get-SupplyDrop.ps1](/Get-SupplyDrop.ps1) | Downloads code repositories from GitHub. |
 | [Ship-WinEvents.ps1](/Ship-WinEvents.ps1) | Ships "Forwarded Events" as JSON objects over HTTP to a SIEM server. |
 
