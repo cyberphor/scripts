@@ -6,7 +6,7 @@
 | [coffee.ps1](/coffee.ps1) | Keeps your machine from going to sleep. |
 | [Copy-File.ps1](Copy-File.ps1) | Copies a file onto multiple machines. |
 | [Deploy-Skynet.ps1](/Deploy-Skynet.ps1) | Deploys an "Active Directory" domain. |
-| [Enable-Auditing.ps1](/Enable-Auditing.ps1) | Enables auditing of the "[Sexy Six](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjNk4CQuoHqAhWD16QKHeAGCNEQFjAAegQIAhAB&url=https%3A%2F%2Fconf.splunk.com%2Fsession%2F2015%2Fconf2015_MGough_MalwareArchaelogy_SecurityCompliance_FindingAdvnacedAttacksAnd.pdf&usg=AOvVaw1tOWTl6K9dc-yMlUzvG4F6)" (key events for detecting malicious activity in Microsoft Windows).|
+| [Enable-Auditing.ps1](/Enable-Auditing.ps1) | Enables auditing of the "[Sexy Six](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjNk4CQuoHqAhWD16QKHeAGCNEQFjAAegQIAhAB&url=https%3A%2F%2Fconf.splunk.com%2Fsession%2F2015%2Fconf2015_MGough_MalwareArchaelogy_SecurityCompliance_FindingAdvnacedAttacksAnd.pdf&usg=AOvVaw1tOWTl6K9dc-yMlUzvG4F6)" (key events for detecting Microsoft Windows malware).|
 | [Export-GPO.ps1](/Export-GPO.ps1) | Scrubs sensitive data from a GPO and then, makes it exportable. |
 | [Get-Info.ps1](Get-Info.ps1) | Gets the hostname, serial number, and current user of multiple machines. |
 | [Get-NetTrafficLights.ps1](Get-NetTrafficLights.ps1) | Pings a list of nodes and displays the results using "traffic light" colors.|
