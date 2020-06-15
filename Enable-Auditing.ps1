@@ -1,6 +1,4 @@
-Param(
-    [switch]$Domain
-)
+Param([switch]$Domain)
 
 function Audit-SexySix {
     $Auditpol = 'C:\Windows\System32\auditpol.exe'
@@ -10,12 +8,12 @@ function Audit-SexySix {
         $Settings = '/set', $Events, '/success:enable'
         Start-Process -FilePath $Auditpol -ArgumentList $Settings -NoNewWindow
 
-        $Settings = '/set', '/subcategory:"Logon"', '/success:disable', '/failure:disable'
+        $Settings = '/set', '/subcategory:"Logon"', '/success:enable', '/failure:enable'
         Start-Process -FilePath $Auditpol -ArgumentList $Settings -NoNewWindow
     }
 }
 
-function Audit-CliUsage {
+function Audit-CLI {
     $Key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit'
     $ValueName = 'ProcessCreationIncludeCmdLine_Enabled'
     $Value = 1
@@ -27,13 +25,12 @@ function Audit-CliUsage {
     }
 }
 
-<# CONTINUE HERE
-
-# 
-
-<?xml version="1.0" encoding="UTF-8"?>
+function SubscribeTo-SexySix {
+    $Wecutil = 'C:\Windows\System32\wecutil.exe'
+    $SubscriptionFile = 'SexySixSubscription.xml'
+    $SubscriptionCriteria = '
 <Subscription xmlns="http://schemas.microsoft.com/2006/03/windows/events/subscription">
-        <SubscriptionId>SexySix</SubscriptionId>
+        <SubscriptionId>SexySixLogs</SubscriptionId>
         <SubscriptionType>SourceInitiated</SubscriptionType>
         <Description></Description>
         <Enabled>true</Enabled>
@@ -64,11 +61,23 @@ function Audit-CliUsage {
         </AllowedSourceNonDomainComputers>
         <AllowedSourceDomainComputers>O:NSG:BAD:P(A;;GA;;;DC)S:</AllowedSourceDomainComputers>
 </Subscription>
-#>
+'
+    if (-not (Test-Path $SubscriptionFile)) {
+        New-Item -Name $SubscriptionFile | Out-Null
+        Add-Content -Path $SubscriptionFile -Value $SubscriptionCriteria
+    }
+    if (Test-Path $SubscriptionFile) {
+        if (Test-Path $Wecutil) {
+            $Subscribe = 'cs', $SubscriptionFile
+            Start-Process -FilePath $Wecutil -ArgumentList 'qc'
+            Start-Process -FilePath $Wecutil -ArgumentList $Subscribe
+        }
+    }
+}
 
 if ($Domain) {
-    # domain stuff
+    SubscribeTo-SexySix
 } else {
     Audit-SexySix
-    Audit-CliUsage
+    Audit-CLI
 }
