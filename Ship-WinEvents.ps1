@@ -92,3 +92,19 @@ While ($true) {
     Write-Output "[+] $(Get-Date) - Shipped events." | SendTo-ScriptLog
     Start-Sleep -Seconds 60
 }
+
+<#
+### PUT THESE FILES ON YOUR SIEM ###
+
+## nc_webserver.sh ##
+while true; do echo -e $(<./index.html) | nc -nvlp 8000 | sed '1,5d' >> /var/log/windows/events.log; done
+
+## index.html ##
+HTTP/1.1 200 OK
+\r\nDate: Wed, 1 Jan 2020 00:00:00 GMT
+\r\nServer: Netcat
+\r\nContent-Type: text/html
+\r\nContent-Length: 6
+\r\nConnection: close
+\r\n\r\nThanks
+#>
