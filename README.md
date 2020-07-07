@@ -1,13 +1,13 @@
 # language-demos
 > My collection of scripts for demonstrating different computer languages. 
 
-* [Assembly](/Assembly/)
 * [BASH](/BASH/)
 * [C](/C/)
 * [Golang](/Golang/)
 * [PowerShell](/PowerShell/)
 * [Python](/Python/)
 * [Ruby](/Ruby/)
+* [x86 Assembly](/x86-Assembly/)
 * [Zeek](/Zeek/)
 
 ## Copyright
