@@ -1,17 +1,64 @@
-# rosetta: PowerShell
-> My collection of Powershell scripts.
+## Navigating the File System
+```powershell
+pwd # print working directory
+ls # list contents of current working directory
+cd Desktop # change directories to 'Desktop'
+cd C:\
+cls # clear screen
+pwd
+cd ~ # change directories and go 'home'
+New-Item -Type file -Name goals.txt
+Add-Content goals.txt "Learn PowerShell"
+Get-Content goals.txt
+Add-Content goals.txt "Learn Python"
+Rename-Items goals.txt -NewName accomplished.txt
+Get-Content goals.txt
+Get-ChildItem # list contents of current working directory
+Remove-Item accomplished.txt
+```
 
-| Script     | Description |
-| ------ | ----------- |
-| [coffee.ps1](/PowerShell/coffee.ps1) | Keeps your machine from going to sleep. |
-| [Copy-File.ps1](/PowerShell/Copy-File.ps1) | Copies a file onto multiple machines. |
-| [Deploy-Skynet.ps1](/PowerShell/Deploy-Skynet.ps1) | Deploys an "Active Directory" domain. |
-| [Enable-Auditing.ps1](/PowerShell/Enable-Auditing.ps1) | Enables auditing of the "[Sexy Six](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwjNk4CQuoHqAhWD16QKHeAGCNEQFjAAegQIAhAB&url=https%3A%2F%2Fconf.splunk.com%2Fsession%2F2015%2Fconf2015_MGough_MalwareArchaelogy_SecurityCompliance_FindingAdvnacedAttacksAnd.pdf&usg=AOvVaw1tOWTl6K9dc-yMlUzvG4F6)" (key events for detecting Microsoft Windows malware).|
-| [Export-GPO.ps1](/PowerShell/Export-GPO.ps1) | Scrubs sensitive data from a GPO and then, makes it exportable. |
-| [Get-Info.ps1](/PowerShell/Get-Info.ps1) | Gets the hostname, serial number, and current user of multiple machines. |
-| [Get-NetTrafficLights.ps1](/PowerShell/Get-NetTrafficLights.ps1) | Pings a list of nodes and displays the results using "traffic light" colors.|
-| [Get-SupplyDrop.ps1](/PowerShell/Get-SupplyDrop.ps1) | Downloads code repositories from GitHub. |
-| [Ship-WinEvents.ps1](/PowerShell/Ship-WinEvents.ps1) | Ships "Forwarded Events" as JSON objects over HTTP to a SIEM server. |
+## Concepts
+```powershell
+Get-Host
+Get-PSDrive
+cd HKCU:\
+pwd
+ls
+cd C:\
+Get-Command *process
+Get-Commmand rename*
+Get-Process | Get-Member
+Get-Process | gm
+Get-Alias gm
+Get-Alias -Definition Get-Process
+```
 
-## Copyright
-This project is licensed under the terms of the [MIT license](/LICENSE).
+## Essentials
+```powershell
+# learn about an object's members
+ps | gm
+
+# Select specific strings to filter output
+ps | Select processname
+ps | Select processname | gm
+
+# Selecting objects of a specified criteria
+ps | Where-Object { $_.processname -eq 'powershell' }
+ps | Where-Object { $_.processname -eq 'powershell' } | gm
+$weird = ps | Where-Object { $_.processname -eq 'powershell' }
+$weird.kill()
+
+# Interating through a group of objects
+New-Item -Type file -Name computers.txt
+Add-Content notes.txt "localhost"
+Add-Content notes.txt "t800.sky.net"
+Add-Content notes.txt "127.0.0.1"
+Get-Content nodes.txt
+Get-Alias -Definition Get-Content
+gc nodes.txt | ForEach-Object { if (Test-Connnection $_ -Quiet) { echo "$_ is up!" } }
+
+# Getting help
+Get-Help Get-Process
+Get-Help Get-Process -Examples
+
+```
