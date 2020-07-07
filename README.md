@@ -1,6 +1,7 @@
 # language-demos
 > My collection of scripts for demonstrating different computer languages. 
 
+* [Assembly](/Assembly/)
 * [BASH](/BASH/)
 * [C](/C/)
 * [Golang](/Golang/)
