@@ -1,5 +1,5 @@
 # language-demos
-> A collection of scripts to demonstrate different computer languages.
+> My collection of scripts for demonstrating different computer languages. 
 
 * [BASH](/BASH/)
 * [C](/C/)
