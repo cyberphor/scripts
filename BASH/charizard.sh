@@ -29,3 +29,4 @@ check_for_files
 # https://stackoverflow.com/questions/18215973/how-to-check-if-running-as-root-in-a-bash-script
 # https://unix.stackexchange.com/questions/15308/how-to-use-find-command-to-search-for-multiple-extensions
 # https://www.codebyamir.com/blog/parse-command-line-arguments-using-getopt
+# https://www.poftut.com/how-to-pass-and-parse-linux-bash-script-arguments-and-parameters/
