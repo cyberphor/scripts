@@ -1,5 +1,9 @@
 #!/usr/bin/env ruby
 
-puts '[+] Who are you? '
-name = gets
-puts '[+] Hello ' + name
+def greet_user()
+    puts '[+] Who are you?'
+    name = gets
+    puts '[+] Hello ' + name
+end
+
+greet_user()
