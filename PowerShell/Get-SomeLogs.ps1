@@ -16,3 +16,5 @@ ForEach-Object {
     
     Write-Host "Time: $timestamp, EventID: $record, User: $username"
 }
+
+# https://community.spiceworks.com/how_to/2776-powershell-sid-to-user-and-user-to-sid
