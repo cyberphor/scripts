@@ -1,12 +1,10 @@
-This is my wiki for computer programming. It includes how-tos and examples. 
+# A Wiki for Scripting
+> Includes examples written in BASH, PowerShell, Python, Ruby, and Zeek.
 
 * [BASH](/BASH/)
-* [C](/C/)
-* [Golang](/Golang/)
 * [PowerShell](/PowerShell/)
 * [Python](/Python/)
 * [Ruby](/Ruby/)
-* [x86 Assembly](/x86-Assembly/)
 * [Zeek](/Zeek/)
 
 ## Copyright
