@@ -1,5 +1,5 @@
 # A Wiki for Scripting
-> Includes examples written in BASH, PowerShell, Python, Ruby, and Zeek.
+> Includes examples of scripts written in BASH, PowerShell, Python, Ruby, and Zeek.
 
 * [BASH](/BASH/)
 * [PowerShell](/PowerShell/)
