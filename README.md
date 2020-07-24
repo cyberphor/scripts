@@ -1,5 +1,5 @@
-# language-demos
-> Demonstrations of different computer languages. 
+# computer-programming-wiki
+> A wiki for computer programming (includes how-tos and examples). 
 
 * [BASH](/BASH/)
 * [C](/C/)
