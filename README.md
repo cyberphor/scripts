@@ -1,4 +1,4 @@
-# computer-programming-wiki
+# Computer Programming
 > A wiki for computer programming (includes how-tos and examples). 
 
 * [BASH](/BASH/)
