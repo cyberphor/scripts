@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 
 def open_ports():
@@ -17,5 +18,12 @@ def open_ports():
         os.chdir(directory)
         os.system(cmd)
 
-open_ports()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--kill-switch', action='store_true')
+    args = parser.parse_args()
 
+    if args.kill_switch:
+        os.system("pkill python3 &")
+    else:
+        open_ports()
