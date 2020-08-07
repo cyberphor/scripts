@@ -11,8 +11,6 @@ if (-not $RunningAsAdmin) {
     exit
 }
 
-$Records = @()
-
 $Computers = Get-ADComputer -Filter * -SearchBase $OU |
 Select-Object -ExpandProperty Name
 
@@ -21,21 +19,19 @@ $Computers | ForEach-Object {
         try {
             $Machine = $_
             Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $Machine -ErrorAction SilentlyContinue |
+            Select-Object IPAddress, MacAddress, Description |
             Where-Object { $_.Description -like 'Intel*' } | 
             ForEach-Object {
                 $NetworkCard = $_
-                $NetworkCard | ForEach-Object {  
-                    $NetworkCard.IPAddress | 
+                $NetworkCard | ForEach-Object {
+                    $_.IPAddress | 
                     ForEach-Object { 
-                        $Entry = $Machine, $_, $NetworkCard.MacAddress, $NetworkCard.Description
-                        $Records += $Entry
+                        $Entry = $Machine, $_, $NetworkCard.MacAddress
+                        Write-Host $Entry
                     }
-                } 
+                }
             } 
         } catch {
-            continue
         }
     }
 }
-
-$Records
