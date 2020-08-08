@@ -11,3 +11,5 @@ for person in line_up:
         print("I know a hacker-man named " + person)
     else:
         print("I know someone named " + person)
+
+# A "pangram" is a unique sentence in which every letter of the alphabet is used at least once. This program intends to use all major computer programming concepts: output, input, arithmetic, conditionals, and loops.
