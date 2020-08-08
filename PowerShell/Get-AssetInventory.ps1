@@ -18,7 +18,6 @@
     Purpose: Enhances the process of maintaining an asset inventory.
 #>
 
-
 Param(
     [string]$OU = (Get-ADDomain -Current LocalComputer).DistinguishedName
 )
