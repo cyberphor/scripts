@@ -63,3 +63,6 @@ $Computers | ForEach-Object {
 $Records | 
 Sort-Object -Property Name, IPAddress |
 ConvertTo-Csv
+
+# References
+# https://www.chrisjhart.com/Windows-10-ssh-copy-id/
