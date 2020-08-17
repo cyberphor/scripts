@@ -17,6 +17,13 @@
 * [Exporting, Importing, and Converting Object Data](#exporting-importing-and-converting-object-data)
 
 # Basic PowerShell
+## Quick Reference Guide
+```pwsh
+# get number of cores
+Get-WmiObject -Class Win32_Processor | Select -ExpandProperty NumberOfCores
+(gwmi win32_processor).numberofcores
+```
+
 ## Navigating the File System
 ```powershell
 pwd # print working directory
