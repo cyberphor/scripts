@@ -1,7 +1,7 @@
 # Python Scripts
 
 ## Table of Contents
-* [One-liners](#one-liners)
+* [One-Liners](#one-liners)
 * [Regex Examples](#regex-examples)
 
 ### One-Liners
