@@ -1,29 +1,24 @@
+# Python Scripts
+
 ## Table of Contents
-* [Input](#input)
-* [Output](#output)
-* [Arithmetic](#arithmetic)
-* [Conditionals](#conditionals)
-    * [Regex](#regex)
-* [Loops](#loops)
-* [References](#references)
+* [One-liners](#one-liners)
+* [Regex Examples](#regex-examples)
 
-## Input
-> foo
+### One-Liners
+Convert an IPv4 address to hex and use it with a Wireshark Display Filter.
+```python
+python3 -c "import socket; print(socket.inet_aton('192.168.56.23').hex())"
+c0a83817 # output
+tshark -nr traffic.pcap "frame contains c0.a8.38.17"
+```
 
-## Output
-Web server
+Web Server
 ```python
 cd /into/directory/with/files/you/want/to/serve/
 sudo python -m SimpleHTTPServer 443
 ```
 
-## Arithmetic
-> foo
-
-## Conditionals 
-> foo
-
-### Regex
+### Regex Examples 
 ```python
 fc = open(​"path/to/dns/log"​).read()
 import​ re
@@ -67,12 +62,3 @@ re.findall(​r"(?P<area_code>\d\d\d)"​,​"706-791-5555"​)
 # left to right, will not use a char found again
 # ex: if "s!" is found "! " will not be considered a find
 ```
-
-## Loops
-> foo
-
-### References
-* foo
-
-
-
