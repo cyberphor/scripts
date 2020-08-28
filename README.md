@@ -1,5 +1,5 @@
-# A Wiki for Scripting
-> Includes scripts I've written in BASH, PowerShell, Python, Ruby, and Zeek.
+# Scripts
+> Includes code I wrote in Python, PowerShell, and other languages. 
 
 * [BASH](/BASH/)
 * [PowerShell](/PowerShell/)
