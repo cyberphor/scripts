@@ -24,6 +24,8 @@ def fingerprint(files):
         bash_pipeline = os.popen(cmd)
         md5 = bash_pipeline.read().rstrip()
         evidence[md5] = filepath
+    total = str(len(evidence))
+    print("[+] Pivoting to " + data_source + " with " + total + " values of interest.")
     for md5 in evidence:
         pivot(md5)
 
@@ -36,17 +38,22 @@ def pivot_2_virus_total(md5):
         response = requests.get(url, params=params).json()
         print(response)
     except:
-        print('[x] Failed to pivot to VirusTotal.')
+        print("[x] Failed to pivot to VirusTotal.")
+        exit()
 
 def pivot_2_team_cymru(md5):
     print("[x] Failed to pivot to Team Cymru's Malware Hash Registry.")
+    exit()
 
 if __name__ == "__main__":
     if args.virus_total:
+        data_source = 'VirusTotal'
         pivot = pivot_2_virus_total
     elif args.team_cymru:
-        pivot = pivot_2_cymru
+        data_source = 'Team Cymru'
+        pivot = pivot_2_team_cymru
     else:
+        data_source = 'VirusTotal'
         pivot = pivot_2_virus_total
     collect()
 
