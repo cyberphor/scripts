@@ -28,28 +28,44 @@ def fingerprint(files):
         bash_pipeline = os.popen(cmd)
         digest = bash_pipeline.read().rstrip()
         evidence[digest] = filename
-    total = str(len(evidence))
-    print("[+] Pivoting to " + data_source + " with " + total + " values of interest.")
+    total = len(evidence)
+    banner = "[+] Pivoting to " + data_source + " with " + str(total) + " values of interest"
+    if data_source == 'VirusTotal' and total > 4:
+        minutes = str(int((total * 15) / 60))
+        seconds = time.time() + (total * 15)
+        future = time.gmtime(seconds)
+        timestamp = time.strftime("%H:%M:%S", future)
+        eta = " (ETA: " + minutes + " minutes, " + timestamp + ")."
+        print(banner + eta)
+    else:
+        print(banner + '.')
     pivot(evidence)
 
 def pivot_2_virus_total(evidence):
-    vt = 'https://www.virustotal.com/api/v3/files/'
-    key = ''
-    for digest in evidence:
-        filename = evidence[digest]
-        with requests.session() as browser:
-            url = vt + digest
-            custom_headers = { 'x-apikey': key }
-            response = requests.get(url, headers = custom_headers)
-            if response.status_code == 200:
-                results = json.loads(response.content)['data']
-                attributes = results.get('attributes')
-                detected = attributes['last_analysis_stats']['malicious']
-                undetected = attributes['last_analysis_stats']['undetected']
-                scanner_count = detected + undetected
-                percent = str(detected) + '/' + str(scanner_count)
-                print(" --> " + percent, digest, filename)
-        time.sleep(15)
+    try:
+        vt = 'https://www.virustotal.com/api/v3/files/'
+        #key = ''
+        key = input("[>] VirusTotal API key: ")
+        for digest in evidence:
+            filename = evidence[digest]
+            with requests.session() as browser:
+                url = vt + digest
+                custom_headers = { 'x-apikey': key }
+                response = requests.get(url, headers = custom_headers)
+                if response.status_code == 200:
+                    results = json.loads(response.content)['data']
+                    attributes = results.get('attributes')
+                    detected = attributes['last_analysis_stats']['malicious']
+                    if detected > 0:
+                        undetected = attributes['last_analysis_stats']['undetected']
+                        scanner_count = detected + undetected
+                        percent = str(detected) + '/' + str(scanner_count)
+                        print(" --> " + percent, digest, filename)
+            if len(evidence) > 4:
+                time.sleep(15)
+    except:
+        print("[x] Failed to pivot to VirusTotal.")
+        exit()
 
 def pivot_2_team_cymru(evidence):
     try:
@@ -94,7 +110,6 @@ if __name__ == "__main__":
     collect()
 
 # REFERENCES
-# https://developers.virustotal.com/v3.0/reference#overview
 # https://developers.virustotal.com/reference#file-search
 # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
 # https://docs.python.org/3/library/os.html#os.scandir
