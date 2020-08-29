@@ -3,6 +3,9 @@
 import argparse
 import os
 import requests
+import select
+import socket
+import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--virus-total', action='store_true')
@@ -19,31 +22,53 @@ def collect():
 
 def fingerprint(files):
     evidence = {}
-    for filepath in files:
-        cmd = "md5sum '" + filepath + "' | awk '{print $1}'"
+    for filename in files:
+        cmd = "md5sum '" + filename + "' | awk '{print $1}'"
         bash_pipeline = os.popen(cmd)
-        md5 = bash_pipeline.read().rstrip()
-        evidence[md5] = filepath
+        digest = bash_pipeline.read().rstrip()
+        evidence[digest] = filename
     total = str(len(evidence))
     print("[+] Pivoting to " + data_source + " with " + total + " values of interest.")
-    for md5 in evidence:
-        pivot(md5)
+    pivot(evidence)
 
-def pivot_2_virus_total(md5):
+def pivot_2_virus_total(evidence):
     url = 'https://www.virustotal.com/vtapi/v2/file/search'
     key = ''
-    query = ''
-    try:
-        params = { 'apikey': key, 'query': md5 }
-        response = requests.get(url, params=params).json()
+    for digest in evidence:
+        params = { 'apikey': key, 'query': digest }
+        response = requests.get(url, params=params)
         print(response)
-    except:
-        print("[x] Failed to pivot to VirusTotal.")
-        exit()
+        time.sleep(15)
 
-def pivot_2_team_cymru(md5):
-    print("[x] Failed to pivot to Team Cymru's Malware Hash Registry.")
-    exit()
+def pivot_2_team_cymru(evidence):
+    try:
+        mhr = ('hash.cymru.com', 43)
+        hashes = ['begin']
+        for digest in evidence:
+            hashes.append(digest)
+        hashes.append('end')
+        hashes = '\n'.join(hashes)
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(mhr)
+        client.sendall(bytes(hashes,'UTF-8'))
+        data = client.recv(1)
+        on,off,out = select.select([client],[client],[client])
+        while on:
+            data += client.recv(2048)
+            time.sleep(.15)
+            on,off,out = select.select([client],[client],[client])
+        client.close()
+        results = data.decode().split('\n')[:-1]
+        del results[0:2]
+        for result in results:
+            percent = result.split(' ')[-1]
+            if percent != 'NO_DATA':
+                digest = result.split(' ')[0]
+                filename = evidence[digest] 
+                print(" --> " + percent, digest, filename)
+    except:
+        print("[x] Failed to pivot to Team Cymru's Malware Hash Registry.")
+        exit()
 
 if __name__ == "__main__":
     if args.virus_total:
@@ -62,3 +87,4 @@ if __name__ == "__main__":
 # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
 # https://docs.python.org/3/library/os.html#os.scandir
 # https://developers.google.com/edu/python/dict-files
+# https://stackoverflow.com/questions/930397/getting-the-last-element-of-a-list
