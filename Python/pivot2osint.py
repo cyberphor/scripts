@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import requests
 import select
@@ -32,12 +33,22 @@ def fingerprint(files):
     pivot(evidence)
 
 def pivot_2_virus_total(evidence):
-    url = 'https://www.virustotal.com/vtapi/v2/file/search'
+    vt = 'https://www.virustotal.com/api/v3/files/'
     key = ''
     for digest in evidence:
-        params = { 'apikey': key, 'query': digest }
-        response = requests.get(url, params=params)
-        print(response)
+        filename = evidence[digest]
+        with requests.session() as browser:
+            url = vt + digest
+            custom_headers = { 'x-apikey': key }
+            response = requests.get(url, headers = custom_headers)
+            if response.status_code == 200:
+                results = json.loads(response.content)['data']
+                attributes = results.get('attributes')
+                detected = attributes['last_analysis_stats']['malicious']
+                undetected = attributes['last_analysis_stats']['undetected']
+                scanner_count = detected + undetected
+                percent = str(detected) + '/' + str(scanner_count)
+                print(" --> " + percent, digest, filename)
         time.sleep(15)
 
 def pivot_2_team_cymru(evidence):
@@ -83,6 +94,7 @@ if __name__ == "__main__":
     collect()
 
 # REFERENCES
+# https://developers.virustotal.com/v3.0/reference#overview
 # https://developers.virustotal.com/reference#file-search
 # https://stackoverflow.com/questions/22058048/hashing-a-file-in-python
 # https://docs.python.org/3/library/os.html#os.scandir
