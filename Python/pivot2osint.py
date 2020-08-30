@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+'''
+    Automates malware hashing and pivoting to OSINT data sources for additional values of interest. 
+'''
+
+__author__ = 'Victor Fernandez III'
+__version__ = '1.0.0'
 
 import argparse
+import hashlib
 import json
 import os
 import requests
@@ -16,17 +24,22 @@ args = parser.parse_args()
 def collect():
     directory = os.scandir('.')
     files = []
-    for entry in directory:
-        if entry.is_file():
-            files.append(entry.name)
+    for item in directory:
+        if item.is_file():
+            files.append(item.name)
     fingerprint(files)
 
 def fingerprint(files):
     evidence = {}
     for filename in files:
-        cmd = "md5sum '" + filename + "' | awk '{print $1}'"
-        bash_pipeline = os.popen(cmd)
-        digest = bash_pipeline.read().rstrip()
+        md5 = hashlib.md5()
+        blocksize = 65536
+        with open(filename,'rb') as item:
+            filebuffer = item.read(blocksize)
+            while len(filebuffer) > 0:
+                md5.update(filebuffer)
+                filebuffer = item.read(blocksize)
+        digest = md5.hexdigest()
         evidence[digest] = filename
     total = len(evidence)
     banner = "[+] Pivoting to " + data_source + " with " + str(total) + " values of interest"
@@ -115,3 +128,4 @@ if __name__ == "__main__":
 # https://docs.python.org/3/library/os.html#os.scandir
 # https://developers.google.com/edu/python/dict-files
 # https://stackoverflow.com/questions/930397/getting-the-last-element-of-a-list
+# https://gist.github.com/aunyks/042c2798383f016939c40aa1be4f4aaf
