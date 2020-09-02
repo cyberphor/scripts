@@ -1,8 +1,26 @@
 # Python Scripts
 
 ## Table of Contents
+* [scoreboard.py](#scoreboardpy)
 * [One-Liners](#one-liners)
 * [Regex Examples](#regex-examples)
+
+### scoreboard.py
+Usage
+```bash
+./scoreboard.py --create # create a scoreboard
+[+] Created scoreboard. # output
+
+./scoreboard.py --add-player # add a player
+[>] Username: victor
+[>] Password: please
+[>] Score: 0
+[+] Added player: 
+('victor', 0) # output
+
+./scoreboard.py --scores # check the scores
+('victor', 0) # output
+```
 
 ### One-Liners
 Convert an IPv4 address to hex and use it with a Wireshark Display Filter.
