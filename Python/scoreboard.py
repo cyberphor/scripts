@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import os
 import sqlite3
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--create', action='store_true')
 parser.add_argument('--add-player', action='store_true')
+parser.add_argument('--add-points', action='store_true')
 parser.add_argument('--scores', action='store_true')
 args = parser.parse_args()
 
@@ -30,7 +32,7 @@ def create():
 
 def add_player():
     username = input('[>] Username: ')
-    password = input('[>] Password: ')
+    password = hashlib.sha512(input('[>] Password: ').encode('UTF-8')).hexdigest()
     score = input('[>] Score: ')
     record = table1, username, password, score
     add = "INSERT INTO %s VALUES ('%s', '%s', '%s')" % (record)
@@ -44,9 +46,34 @@ def scores():
     for record in records:
         print(record)
 
+def authenticated(player):
+    password = hashlib.sha512(input('[>] Their password: ').encode('UTF-8')).hexdigest()
+    query = "SELECT password FROM players WHERE username = ?"
+    result = cursor.execute(query,(player,)).fetchall()
+    if len(result) > 0:
+        correct = result[0][0]
+        if password == correct: return True
+        else: return False
+
+def get_points(player):
+    query = "SELECT score FROM players WHERE username = ?"
+    result = cursor.execute(query,(player,)).fetchall()[0][0]
+    return result
+
+def add_points():
+    player = input('[>] Player: ')
+    if authenticated(player) == True:
+        new_points = input('[>] Points to add: ')
+        old_points = get_points(player)
+        # insert more code here
+        print(" --> Added %s points to %s's score." % (new_points, player))
+    else:
+        print('[x] Invalid credentials.')
+
 if __name__ == '__main__':
     if args.create: create()
     elif args.add_player: add_player()
+    elif args.add_points: add_points()
     elif args.scores: scores()
 
 # REFERENCES
