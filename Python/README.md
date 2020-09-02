@@ -6,19 +6,25 @@
 * [Regex Examples](#regex-examples)
 
 ### scoreboard.py
+Installation
+```bash
+git clone https://github.com/cyberphor/scripts.git 
+chmod 755 ./scripts/Python/scoreboard.py
+sudo cp ./scripts/Python/scoreboard.py /usr/local/bin/scoreboard.py
+```
 Usage
 ```bash
-./scoreboard.py --create # create a scoreboard
+scoreboard.py --create # create a scoreboard
 [+] Created scoreboard. # output
 
-./scoreboard.py --add-player # add a player
+scoreboard.py --add-player # add a player
 [>] Username: victor
 [>] Password: please
 [>] Score: 0
 [+] Added player: 
 ('victor', 0) # output
 
-./scoreboard.py --scores # check the scores
+scoreboard.py --scores # check the scores
 ('victor', 0) # output
 ```
 
