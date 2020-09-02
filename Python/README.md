@@ -12,7 +12,7 @@ git clone https://github.com/cyberphor/scripts.git
 chmod 755 ./scripts/Python/scoreboard.py
 sudo cp ./scripts/Python/scoreboard.py /usr/local/bin/scoreboard.py
 ```
-Usage
+Examples
 ```bash
 scoreboard.py --create # create a scoreboard
 [+] Created scoreboard. # output
