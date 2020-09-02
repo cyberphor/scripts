@@ -8,8 +8,9 @@ import sqlite3
 parser = argparse.ArgumentParser()
 parser.add_argument('--create', action='store_true')
 parser.add_argument('--add-player', action='store_true')
+parser.add_argument('--remove-player', action='store_true')
 parser.add_argument('--add-points', action='store_true')
-parser.add_argument('--scores', action='store_true')
+parser.add_argument('--get-scores', action='store_true')
 args = parser.parse_args()
 
 database = 'player.db'
@@ -38,43 +39,58 @@ def add_player():
     add = "INSERT INTO %s VALUES ('%s', '%s', '%s')" % (record)
     api(add)
     print('[+] Added player: ')
-    scores()
+    print(scores()[-1])
 
-def scores():
+def get_scores():
     query = "SELECT username, score FROM players"
-    records = cursor.execute(query).fetchall()
-    for record in records:
-        print(record)
+    results = cursor.execute(query).fetchall()
+    return results
 
 def authenticated(player):
     password = hashlib.sha512(input('[>] Their password: ').encode('UTF-8')).hexdigest()
     query = "SELECT password FROM players WHERE username = ?"
-    result = cursor.execute(query,(player,)).fetchall()
-    if len(result) > 0:
-        correct = result[0][0]
+    results = cursor.execute(query,(player,)).fetchall()
+    if len(results) > 0:
+        correct = results[0][0]
         if password == correct: return True
         else: return False
 
 def get_points(player):
     query = "SELECT score FROM players WHERE username = ?"
-    result = cursor.execute(query,(player,)).fetchall()[0][0]
-    return result
+    results = cursor.execute(query,(player,)).fetchall()[0][0]
+    return results
 
 def add_points():
     player = input('[>] Player: ')
     if authenticated(player) == True:
-        new_points = input('[>] Points to add: ')
-        old_points = get_points(player)
-        # insert more code here
-        print(" --> Added %s points to %s's score." % (new_points, player))
+        score = get_points(player)
+        points = int(input('[>] Points to add: '))
+        score = str(score + points)
+        query = "UPDATE players SET score = ? WHERE username = ?"
+        cursor.execute(query,(score,player))
+        connection.commit()
+        print(" --> Added %s points to %s's score." % (str(points), player))
     else:
         print('[x] Invalid credentials.')
 
+def remove_player():
+    player = input('[>] Player: ')
+    if authenticated(player) == True:
+        query = "DELETE FROM players WHERE username = ?"
+        cursor.execute(query,(player,))
+        connection.commit()
+        print(' --> Removed %s from the scoreboard.' % (player))
+    else:
+        print('[x] Invalid credentials.')
+   
 if __name__ == '__main__':
     if args.create: create()
     elif args.add_player: add_player()
+    elif args.remove_player: remove_player()
     elif args.add_points: add_points()
-    elif args.scores: scores()
+    elif args.get_scores:
+        for score in get_scores():
+            print(score)
 
 # REFERENCES
 # https://www.digitalocean.com/community/tutorials/how-to-use-the-sqlite3-module-in-python-3
