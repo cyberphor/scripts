@@ -24,7 +24,7 @@ scoreboard.py --add-player # add a player
 [+] Added player: 
 ('victor', 0) # output
 
-scoreboard.py --scores # check the scores
+scoreboard.py --get-scores # check the scores
 ('victor', 0) # output
 ```
 
