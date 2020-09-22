@@ -1,5 +1,6 @@
 Param(
-    [switch]$Remove
+    [switch]$Remove,
+    [switch]$CreateDomainAdmin
 )
 
 $Domain = 'vanilla.sky.net' # change me
@@ -38,7 +39,7 @@ function Install-RequiredFeatures() {
     } else { Write-Host "[+] The 'Domain Name System (DNS)' feature is already installed." }
 }
 
-function Create-Forest() {
+function Create-ActiveDirectoryForest() {
     if ($env:COMPUTERNAME -ne $DC1) { Rename-Computer -NewName $DC1 -Force }
     if ((Get-Service adws).Status -ne 'Running') {
         Write-Host "[!] Deploying the '$Domain' domain."
@@ -69,7 +70,7 @@ function Create-DomainAdmin() {
     }
 }
 
-function Remove-Skynet {
+function Remove-ActiveDirectoryForest {
     $SomethingChanged = $false
     if ([bool] (Get-ADUser -Filter { SamAccountName -eq $SamAccountName })) { 
         Remove-ADUser $SamAccountName 
@@ -87,9 +88,10 @@ function Remove-Skynet {
 }
 
 Check-Credentials
-if ($Remove) { Remove-Skynet }
+if ($Remove) { Remove-ActiveDirectoryForest }
+elseif ($CreateDomainAdmin) { Create-DomainAdmin }
 else {
     Install-RequiredFeatures
-    Create-Forest
+    Create-ActiveDirectoryForest
     Create-DomainAdmin
 }
