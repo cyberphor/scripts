@@ -24,10 +24,35 @@ function Get-CustomConfiguration {
 }
 
 function Set-DefaultConfiguration {
+    if (Test-Path $ConfigFile) {
+        Remove-Item -Path $ConfigFile
+    } else {
+        $InputType = 'log'
+        $FilePath = 'C:\Windows\System32\LogFiles\Firewall\*.log'
+        $DocumentType = 'windowsfirewall'
+        $LogType = 'windowsfirewall'
+        $IpAddress = '192.168.3.9'
+        $Port = '5044'
+        $LogstashServer = $IpAddress + ':' + $Port
 
-    # more code goes here
+        $Configuration = "
+        filebeat.prospectors:
+        - input_type: $InputType
+         paths:
+         - $FilePath
+         document_type: $DocumentType
+         fields:
+         logtype: $LogType
+ 
+        output:
+         logstash:
+         hosts: ['$LogstashServer']
+        "
 
-    Write-Host "[+] Setting configuration defaults."
+        New-Item -ItemType File -Name $ConfigFile | Out-Null
+        Add-Content -Path $ConfigFile -Value $Configuration 
+        Write-Host "[+] Used configuration defaults."
+    }
 }
 
 function Install-UsingCurrentDirectory {
@@ -123,6 +148,7 @@ function Remove-Program {
 }
 
 function Main {
+
     if ($Remove) {
         Remove-Program 
     } elseif ($ServiceIsInstalled) { 
