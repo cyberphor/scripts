@@ -80,7 +80,7 @@ function Install-UsingCurrentDirectory {
         $Binary = "`"$InstallationFilePath\$Program`""
         $Arguments = " -c `"$ConfigurationFilePath`" -path.home `"$InstallationFilePath`" -path.data `"$InstallationFilePath`" -path.logs `"$InstallationFilePath\logs`""
         $BinaryPathName = $Binary + $Arguments
-        New-Service -Name $Name -DisplayName $Name -BinaryPathName $BinaryPathName
+        New-Service -Name $Name -DisplayName $Name -Description $Description -BinaryPathName $BinaryPathName
         Start-Service $Name
         Get-Service $Name
     }
@@ -106,7 +106,7 @@ function Install-UsingSysVolShare {
         $PathData = "$InstallationFilePath\Data"
         $PathLogs = "$InstallationFilePath\Data\logs"
         $BinaryPathName = "$Binary -c $Config -path.home $PathHome -path.data $PathData -path.logs $PathLogs"
-        New-Service -Name $Service -DisplayName $Service -BinaryPathName $BinaryPathName
+        New-Service -Name $Service -DisplayName $Service -Description $Description -BinaryPathName $BinaryPathName
         Set-Service -Name $Service -StartupType Automatic
         Start-Service -Name $Service
     }
@@ -114,21 +114,22 @@ function Install-UsingSysVolShare {
 
 function Start-Program {
     $RunStatus = $Installed.Status
-    if ($RunStatus -ne "Running") { Start-Service -Name $Service } 
+    if ($RunStatus -ne "Running") { 
+        Start-Service -Name $Name 
+        Write-Host "[>] Started $Name."
+    } 
 }
 
 function Remove-Program {
-    if (Get-Service | Where-Object { $_.Name -like $Service }) {
-        Stop-Service $Service
-        (Get-WmiObject -Class Win32_Service -Filter "name='$Service'").Delete() | Out-Null
-        Write-Host "[+] Stopped $Service."
+    if (Get-Service | Where-Object { $_.Name -like $Name }) {
+        Stop-Service $Name
+        (Get-WmiObject -Class Win32_Service -Filter "name='$Name'").Delete() | Out-Null
+        Write-Host "[+] Stopped $Name."
     } 
-    <#
     if (Test-Path $InstallationFilePath) { 
         Remove-Item -Path $InstallationFilePath -Recurse -Force
-        Write-Host "[+] Removed $Service."
-    } 
-    #>    
+        Write-Host "[+] Removed $Name."
+    }     
 }
 
 function Main {
