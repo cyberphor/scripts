@@ -8,8 +8,8 @@ function Install-UsingCurrentDirectory {
     if ($CustomConfiguration) {
         $Type = Read-Host -Prompt '[>] Input Type'
         $FilePath = Read-Host -Prompt '[>] Filepath'
-        #$DocumentType = Read-Host -Prompt '[>] Document Type'
-        #$LogType = Read-Host -Prompt '[>] Log Type'
+        $DocumentType = Read-Host -Prompt '[>] Document Type'
+        $LogType = Read-Host -Prompt '[>] Log Type'
         $IpAddress = Read-Host -Prompt '[>] Logstash Server IP Addresss'
         $Port = Read-Host -Prompt '[>] Logstash Server Port'
         $LogstashServer = $IpAddress + ':' + $Port
@@ -26,25 +26,25 @@ function Install-UsingCurrentDirectory {
     $Configuration = @(
         "filebeat.prospectors:",
         "- type: $Type",
+        "  enabled: true",
         "  paths:",
-        "    - '$FilePath'",
-        "name: $env:COMPUTERNAME",
-        "document_type: $DocumentType",
-        "logtype: $LogType",
-        "output.logstash:",
-        "  hosts: ['$LogstashServer']"
+        "    - $FilePath",
+        "  document_type: $DocumentType", 
+        "  logtype: $LogType", 
+        "output.logstash:", 
+        "   hosts: ['$LogstashServer']"
     ) -join "`r`n"
 
-    if (Test-Path $ConfigFile) { 
-        $OldConfiguration = Get-Content $ConfigFile
-        Remove-Item $ConfigFile
+    if (Test-Path $ConfigurationFile) { 
+        $OldConfiguration = Get-Content $ConfigurationFile
+        Remove-Item $ConfigurationFile
         $DeletedOldConfiguration = $true
     } else {
         $DeletedOldConfiguration = $false
     }
      
-    New-Item -ItemType File -Name $ConfigFile | Out-Null 
-    Add-Content -Value $Configuration -Path $ConfigFile
+    New-Item -ItemType File -Name $ConfigurationFile | Out-Null 
+    Add-Content -Value $Configuration -Path $ConfigurationFile
     $CreatedNewConfiguration = $true
  
     $CurrentDirectory = (Get-ChildItem -Recurse).name
@@ -55,59 +55,56 @@ function Install-UsingCurrentDirectory {
             $FilesToCopy += $RequiredFile
         } else {
             if ($CreatedNewConfiguration) {
-                Remove-Item $ConfigFile
+                Remove-Item $ConfigurationFile
             } 
             if ($DeletedOldConfiguration) {
-                New-Item -ItemType File -Name $ConfigFile | Out-Null
-                Add-Content -Value $OldConfiguration -Path $ConfigFile
+                New-Item -ItemType File -Name $ConfigurationFile | Out-Null
+                Add-Content -Value $OldConfiguration -Path $ConfigurationFile
             }
             Write-Host "[x] Missing required file: $RequiredFile"
             exit
         }
     }
 
-    if (Test-Path $ProgramFolder) { 
-        Remove-Item -Recurse $ProgramFolder
+    if (Test-Path $InstallationFilePath) { 
+        Remove-Item -Recurse $InstallationFilePath
     } 
-    New-Item -ItemType Directory -Path $ProgramFolder 
+    New-Item -ItemType Directory -Path $InstallationFilePath 
 
     $FilesToCopy | ForEach-Object {
         $RequiredFile = $_
-        Copy-Item -Path $RequiredFile -Destination $ProgramFolder
+        Copy-Item -Path $RequiredFile -Destination $InstallationFilePath
     }
 
-    if (Test-Path "$ProgramFolder\$Program.exe") {
-        $Binary = "$ProgramFolder\$Program.exe"
-        $Config = "$ProgramFolder\$ConfigFile"
-        $PathHome = "$ProgramFolder"
-        $PathData = "$ProgramFolder\Data"
-        $PathLogs = "$ProgramFolder\Data\logs"
-        $BinaryPathName = "$Binary -c $Config -path.home $PathHome -path.data $PathData -path.logs $PathLogs"
-        New-Service -Name $Service -DisplayName $Service -Description $Description -BinaryPathName $BinaryPathName 
-        Set-Service -Name $Service -StartupType Automatic
-        Start-Service -Name $Service
+    if (Test-Path "$InstallationFilePath\$Program") {
+        $Binary = "`"$InstallationFilePath\$Program`""
+        $Arguments = " -c `"$ConfigurationFilePath`" -path.home `"$InstallationFilePath`" -path.data `"$InstallationFilePath`" -path.logs `"$InstallationFilePath\logs`""
+        $BinaryPathName = $Binary + $Arguments
+        New-Service -Name $Name -DisplayName $Name -BinaryPathName $BinaryPathName
+        Start-Service $Name
+        Get-Service $Name
     }
 }
 
 function Install-UsingSysVolShare {
-    $ProgramFolder = "$env:ProgramFiles\$Service"
-    if (Test-Path $ProgramFolder) { Remove-Item -Recurse $ProgramFolder }
-    else { New-Item -Type Directory $ProgramFolder | Out-Null }
+    $InstallationFilePath = "$env:ProgramFiles\$Service"
+    if (Test-Path $InstallationFilePath) { Remove-Item -Recurse $InstallationFilePath }
+    else { New-Item -Type Directory $InstallationFilePath | Out-Null }
 
     <#
     $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
     $AllGpoFiles = Get-ChildItem -Recurse "\\$Domain\sysvol\$Domain\Policies\"
     $ServiceGPO = ($AllGpoFiles | Where-Object { $_.Name -eq "$Service.exe" }).DirectoryName
     
-    Copy-Item -Path "$ServiceGPO\filebeat.exe", "$ServiceGPO\filebeat.yml" -Destination $ProgramFolder
+    Copy-Item -Path "$ServiceGPO\filebeat.exe", "$ServiceGPO\filebeat.yml" -Destination $InstallationFilePath
     #>
 
-    if (Test-Path "$ProgramFolder\$Service.exe") {
-        $Binary = "$ProgramFolder\$Service.exe"
-        $Config = "$ProgramFolder\$ConfigFile"
-        $PathHome = "$ProgramFolder"
-        $PathData = "$ProgramFolder\Data"
-        $PathLogs = "$ProgramFolder\Data\logs"
+    if (Test-Path "$InstallationFilePath\$Service.exe") {
+        $Binary = "$InstallationFilePath\$Service.exe"
+        $Config = "$InstallationFilePath\$ConfigurationFile"
+        $PathHome = "$InstallationFilePath"
+        $PathData = "$InstallationFilePath\Data"
+        $PathLogs = "$InstallationFilePath\Data\logs"
         $BinaryPathName = "$Binary -c $Config -path.home $PathHome -path.data $PathData -path.logs $PathLogs"
         New-Service -Name $Service -DisplayName $Service -BinaryPathName $BinaryPathName
         Set-Service -Name $Service -StartupType Automatic
@@ -126,21 +123,23 @@ function Remove-Program {
         (Get-WmiObject -Class Win32_Service -Filter "name='$Service'").Delete() | Out-Null
         Write-Host "[+] Stopped $Service."
     } 
-    if (Test-Path $ProgramFolder) { 
-        Remove-Item -Path $ProgramFolder -Recurse -Force
+    <#
+    if (Test-Path $InstallationFilePath) { 
+        Remove-Item -Path $InstallationFilePath -Recurse -Force
         Write-Host "[+] Removed $Service."
     } 
-    
+    #>    
 }
 
 function Main {
-    $Service = 'Filebeat'
-    $Program = $Service.ToLower()
-    $Description = 'A lightweight shipper for forwarding and centralizing log data.'
-    $ConfigFile = 'filebeat.yml'
-    $Requirements = $ConfigFile, 'filebeat.exe'
-    $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Service }
-    $ProgramFolder = "$env:ProgramFiles\$Service"
+    $Name = 'Filebeat'
+    $Description = 'A lightweight shipper for forwarding and centralizing log data.'  
+    $Program = $Name.ToLower() + '.exe'
+    $ConfigurationFile = $Name.ToLower() + '.yml'
+    $Requirements = $Program, $ConfigurationFile
+    $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Name }
+    $InstallationFilePath = $env:ProgramData + '\' + $Name
+    $ConfigurationFilePath = $InstallationFilePath + '\' + $ConfigurationFile
 
     if ($Remove) {
         Remove-Program 
