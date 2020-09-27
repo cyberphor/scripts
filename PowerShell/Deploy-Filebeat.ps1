@@ -4,84 +4,61 @@ Param(
     [switch]$Remove
 )
 
-function Install-Program {
-    # backup and delete the default Filebeat configuration file
-    if (Test-Path $ConfigurationFile) { 
-        $OldConfiguration = Get-Content $ConfigurationFile
-        Remove-Item $ConfigurationFile
-        $DeletedOldConfiguration = $true
-    } else {
-        $DeletedOldConfiguration = $false
+function Install-Program($Source) {
+    $Directory = @{}
+    Get-ChildItem $Source -Recurse | 
+    Select -Property Name, FullName |
+    ForEach-Object {
+        if ($Directory.Keys -notcontains $_.Name) {
+            $Directory.Add($_.Name, $_.FullName)
+        }
     }
      
-    # create a new Filebeat configuration file
-    New-Item -ItemType File -Name $ConfigurationFile | Out-Null 
-    Add-Content -Value $Configuration -Path $ConfigurationFile
-    $CreatedNewConfiguration = $true
- 
-    # check if the current directory contains all required files for deployment
-    $Directory = (Get-ChildItem -Recurse).name
     $FilesToCopy = @()
     $Requirements | ForEach-Object {
         $RequiredFile = $_ 
-        if ($Directory -contains $RequiredFile) {
-            $FilesToCopy += $RequiredFile
+        if ($Directory.Keys -contains $RequiredFile) {
+            $FilesToCopy += $Directory.Item($RequiredFile)
         } else {
-            if ($CreatedNewConfiguration) {
-                Remove-Item $ConfigurationFile
-            } 
-            if ($DeletedOldConfiguration) {
-                New-Item -ItemType File -Name $ConfigurationFile | Out-Null
-                Add-Content -Value $OldConfiguration -Path $ConfigurationFile
-            }
             Write-Host "[x] Missing required file: $RequiredFile"
             exit
         }
     }
 
-    # remove any existing Filebeat installation folders if they exist
     if (Test-Path $InstallationFilePath) { 
         Remove-Item -Recurse $InstallationFilePath
     } 
     New-Item -ItemType Directory -Path $InstallationFilePath | Out-Null
 
-    # copy all required files for deployment to the Filebeat installation folder
     $FilesToCopy | ForEach-Object {
         $RequiredFile = $_
         Copy-Item -Path $RequiredFile -Destination $InstallationFilePath
     }
 
-    # register and start Filebeat as a service if it was copied to the installation folder 
+    $Configuration = @(
+        "filebeat.prospectors:",
+        "- type: $Type",
+        "  enabled: true",
+        "  paths:",
+        "    - $FilePath",
+        "  document_type: $DocumentType", 
+        "  logtype: $LogType", 
+        "output.logstash:", 
+        "   hosts: ['$LogstashServer']"
+    ) -join "`r`n"
+
+    Add-Content -Value $Configuration -Path $ConfigurationFilePath
+
     if (Test-Path "$InstallationFilePath\$Program") {
         $Binary = "`"$InstallationFilePath\$Program`""
         $Arguments = " -c `"$ConfigurationFilePath`" -path.home `"$RunTimeFilePath`" -path.data `"$RunTimeFilePath`" -path.logs `"$RunTimeFilePath\logs`""
         $BinaryPathName = $Binary + $Arguments
         New-Service -Name $Name -DisplayName $Name -Description $Description -BinaryPathName $BinaryPathName | Out-Null
         Start-Service $Name | Out-Null
-
+        Write-Host "[+] Deployed $Name."
+        Write-Host " -  Log Source: $FilePath"
+        Write-Host " -  Destination Logstash Server: $LogstashServer"
     }
-}
-
-function Install-UsingCurrentDirectory {
-    $Directory = (Get-ChildItem -Recurse).name
-    Install-Program
-    Write-Host "[+] Deployed $Name."
-    Write-Host " -  Log Source: $FilePath"
-    Write-Host " -  Destination Logstash Server: $LogstashServer"
-}
-
-function Install-UsingDesignatedDirectory {
-    $OriginalDirectory = $pwd
-    Set-Location $From
-    Install-UsingCurrentDirectory
-    Set-Location $OriginalDirectory
-}
-
-function Install-UsingSysVolShare {
-    $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
-    $GroupPolicyObjects = Get-ChildItem -Recurse "\\$Domain\sysvol\$Domain\Policies\"
-    $Directory = ($GroupPolicyObjects | Where-Object { $_.Name -eq $Program }).DirectoryName
-    Install-Program
 }
 
 function Start-Program {
@@ -94,7 +71,7 @@ function Start-Program {
 }
 
 function Remove-Program {
-    if (Get-Service | Where-Object { $_.Name -like $Name }) {
+    if ($ServiceIsInstalled) {
         Stop-Service $Name
         (Get-WmiObject -Class Win32_Service -Filter "name='$Name'").Delete() | Out-Null
         Remove-Item -Path $RunTimeFilePath -Recurse -Force
@@ -110,7 +87,7 @@ function Main {
     $Description = 'A lightweight shipper for forwarding and centralizing log data.'  
     $Program = $Name.ToLower() + '.exe'
     $ConfigurationFile = $Name.ToLower() + '.yml'
-    $Requirements = $Program, $ConfigurationFile
+    $Requirements = $Program
     
     $InstallationFilePath = $env:ProgramFiles + '\' + $Name
     $ConfigurationFilePath = $InstallationFilePath + '\' + $ConfigurationFile
@@ -126,28 +103,22 @@ function Main {
     $Port = '5044'
     $LogstashServer = $IpAddress + ':' + $Port
 
-    $Configuration = @(
-        "filebeat.prospectors:",
-        "- type: $Type",
-        "  enabled: true",
-        "  paths:",
-        "    - $FilePath",
-        "  document_type: $DocumentType", 
-        "  logtype: $LogType", 
-        "output.logstash:", 
-        "   hosts: ['$LogstashServer']"
-    ) -join "`r`n"
-
     if ($Remove) {
         Remove-Program 
     } elseif ($ServiceIsInstalled) { 
         Start-Program
     } elseif ($FromGroupPolicy) {
-        Install-UsingSysVolShare
+        $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
+        $SysVol = Get-ChildItem -Recurse "\\$Domain\sysvol\$Domain\Policies\"
+        $GroupPolicyObject = ($SysVol | Where-Object { $_.Name -eq $Program }).DirectoryName
+        Install-Program($GroupPolicyObject)
     } elseif ($From) {
-        Install-UsingDesignatedDirectory
+        $OriginalDirectory = $PWD
+        Set-Location $From
+        Install-Program($PWD)
+        Set-Location $OriginalDirectory
     } else {
-        Install-UsingCurrentDirectory
+        Install-Program($PWD)
     }
 }
 
