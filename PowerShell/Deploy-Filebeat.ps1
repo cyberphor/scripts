@@ -1,21 +1,11 @@
 Param(
-    [switch]$GroupPolicy,
+    [string]$From,
+    [switch]$FromGroupPolicy,
     [switch]$Remove
 )
 
-function Install-UsingCurrentDirectory {
-    $Configuration = @(
-        "filebeat.prospectors:",
-        "- type: $Type",
-        "  enabled: true",
-        "  paths:",
-        "    - $FilePath",
-        "  document_type: $DocumentType", 
-        "  logtype: $LogType", 
-        "output.logstash:", 
-        "   hosts: ['$LogstashServer']"
-    ) -join "`r`n"
-
+function Install-Program {
+    # backup and delete the default Filebeat configuration file
     if (Test-Path $ConfigurationFile) { 
         $OldConfiguration = Get-Content $ConfigurationFile
         Remove-Item $ConfigurationFile
@@ -24,15 +14,17 @@ function Install-UsingCurrentDirectory {
         $DeletedOldConfiguration = $false
     }
      
+    # create a new Filebeat configuration file
     New-Item -ItemType File -Name $ConfigurationFile | Out-Null 
     Add-Content -Value $Configuration -Path $ConfigurationFile
     $CreatedNewConfiguration = $true
  
-    $CurrentDirectory = (Get-ChildItem -Recurse).name
+    # check if the current directory contains all required files for deployment
+    $Directory = (Get-ChildItem -Recurse).name
     $FilesToCopy = @()
     $Requirements | ForEach-Object {
         $RequiredFile = $_ 
-        if ($CurrentDirectory -contains $RequiredFile) {
+        if ($Directory -contains $RequiredFile) {
             $FilesToCopy += $RequiredFile
         } else {
             if ($CreatedNewConfiguration) {
@@ -47,70 +39,70 @@ function Install-UsingCurrentDirectory {
         }
     }
 
+    # remove any existing Filebeat installation folders if they exist
     if (Test-Path $InstallationFilePath) { 
         Remove-Item -Recurse $InstallationFilePath
     } 
-    New-Item -ItemType Directory -Path $InstallationFilePath 
+    New-Item -ItemType Directory -Path $InstallationFilePath | Out-Null
 
+    # copy all required files for deployment to the Filebeat installation folder
     $FilesToCopy | ForEach-Object {
         $RequiredFile = $_
         Copy-Item -Path $RequiredFile -Destination $InstallationFilePath
     }
 
+    # register and start Filebeat as a service if it was copied to the installation folder 
     if (Test-Path "$InstallationFilePath\$Program") {
         $Binary = "`"$InstallationFilePath\$Program`""
-        $Arguments = " -c `"$ConfigurationFilePath`" -path.home `"$InstallationFilePath`" -path.data `"$InstallationFilePath`" -path.logs `"$InstallationFilePath\logs`""
+        $Arguments = " -c `"$ConfigurationFilePath`" -path.home `"$RunTimeFilePath`" -path.data `"$RunTimeFilePath`" -path.logs `"$RunTimeFilePath\logs`""
         $BinaryPathName = $Binary + $Arguments
-        New-Service -Name $Name -DisplayName $Name -Description $Description -BinaryPathName $BinaryPathName
-        Start-Service $Name
-        Get-Service $Name
+        New-Service -Name $Name -DisplayName $Name -Description $Description -BinaryPathName $BinaryPathName | Out-Null
+        Start-Service $Name | Out-Null
+
     }
+}
+
+function Install-UsingCurrentDirectory {
+    $Directory = (Get-ChildItem -Recurse).name
+    Install-Program
+    Write-Host "[+] Deployed $Name."
+    Write-Host " -  Log Source: $FilePath"
+    Write-Host " -  Destination Logstash Server: $LogstashServer"
+}
+
+function Install-UsingDesignatedDirectory {
+    $OriginalDirectory = $pwd
+    Set-Location $From
+    Install-UsingCurrentDirectory
+    Set-Location $OriginalDirectory
 }
 
 function Install-UsingSysVolShare {
-    $InstallationFilePath = "$env:ProgramFiles\$Service"
-    if (Test-Path $InstallationFilePath) { Remove-Item -Recurse $InstallationFilePath }
-    else { New-Item -Type Directory $InstallationFilePath | Out-Null }
-
-    <#
     $Domain = (Get-WmiObject Win32_ComputerSystem).Domain
-    $AllGpoFiles = Get-ChildItem -Recurse "\\$Domain\sysvol\$Domain\Policies\"
-    $ServiceGPO = ($AllGpoFiles | Where-Object { $_.Name -eq "$Service.exe" }).DirectoryName
-    
-    Copy-Item -Path "$ServiceGPO\filebeat.exe", "$ServiceGPO\filebeat.yml" -Destination $InstallationFilePath
-    #>
-
-    if (Test-Path "$InstallationFilePath\$Service.exe") {
-        $Binary = "$InstallationFilePath\$Service.exe"
-        $Config = "$InstallationFilePath\$ConfigurationFile"
-        $PathHome = "$InstallationFilePath"
-        $PathData = "$InstallationFilePath\Data"
-        $PathLogs = "$InstallationFilePath\Data\logs"
-        $BinaryPathName = "$Binary -c $Config -path.home $PathHome -path.data $PathData -path.logs $PathLogs"
-        New-Service -Name $Service -DisplayName $Service -Description $Description -BinaryPathName $BinaryPathName
-        Set-Service -Name $Service -StartupType Automatic
-        Start-Service -Name $Service
-    }
+    $GroupPolicyObjects = Get-ChildItem -Recurse "\\$Domain\sysvol\$Domain\Policies\"
+    $Directory = ($GroupPolicyObjects | Where-Object { $_.Name -eq $Program }).DirectoryName
+    Install-Program
 }
 
 function Start-Program {
-    $RunStatus = $Installed.Status
-    if ($RunStatus -ne "Running") { 
+    if ($ServiceIsInstalled.Status -ne "Running") { 
         Start-Service -Name $Name 
-        Write-Host "[>] Started $Name."
-    } 
+        Write-Host "[+] Started $Name."
+    } else {
+        Write-Host "[+] $Name is already running."
+    }
 }
 
 function Remove-Program {
     if (Get-Service | Where-Object { $_.Name -like $Name }) {
         Stop-Service $Name
         (Get-WmiObject -Class Win32_Service -Filter "name='$Name'").Delete() | Out-Null
-        Write-Host "[+] Stopped $Name."
-    } 
-    if (Test-Path $InstallationFilePath) { 
+        Remove-Item -Path $RunTimeFilePath -Recurse -Force
         Remove-Item -Path $InstallationFilePath -Recurse -Force
         Write-Host "[+] Removed $Name."
-    }     
+    } else {
+        Write-Host "[x] $Name is not installed."
+    }
 }
 
 function Main {
@@ -119,9 +111,13 @@ function Main {
     $Program = $Name.ToLower() + '.exe'
     $ConfigurationFile = $Name.ToLower() + '.yml'
     $Requirements = $Program, $ConfigurationFile
-    $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Name }
-    $InstallationFilePath = $env:ProgramData + '\' + $Name
+    
+    $InstallationFilePath = $env:ProgramFiles + '\' + $Name
     $ConfigurationFilePath = $InstallationFilePath + '\' + $ConfigurationFile
+    $RunTimeFilePath = $env:ProgramData + '\' + $Name
+
+    $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Name }
+    
     $Type = 'log'
     $FilePath = 'C:\Windows\System32\LogFiles\Firewall\*.log'
     $DocumentType = 'windowsfirewall'
@@ -130,12 +126,26 @@ function Main {
     $Port = '5044'
     $LogstashServer = $IpAddress + ':' + $Port
 
+    $Configuration = @(
+        "filebeat.prospectors:",
+        "- type: $Type",
+        "  enabled: true",
+        "  paths:",
+        "    - $FilePath",
+        "  document_type: $DocumentType", 
+        "  logtype: $LogType", 
+        "output.logstash:", 
+        "   hosts: ['$LogstashServer']"
+    ) -join "`r`n"
+
     if ($Remove) {
         Remove-Program 
     } elseif ($ServiceIsInstalled) { 
         Start-Program
-    } elseif ($GroupPolicy) {
+    } elseif ($FromGroupPolicy) {
         Install-UsingSysVolShare
+    } elseif ($From) {
+        Install-UsingDesignatedDirectory
     } else {
         Install-UsingCurrentDirectory
     }
