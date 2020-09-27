@@ -1,28 +1,9 @@
 Param(
-    [switch]$CustomConfiguration,
     [switch]$GroupPolicy,
     [switch]$Remove
 )
 
 function Install-UsingCurrentDirectory {
-    if ($CustomConfiguration) {
-        $Type = Read-Host -Prompt '[>] Input Type'
-        $FilePath = Read-Host -Prompt '[>] Filepath'
-        $DocumentType = Read-Host -Prompt '[>] Document Type'
-        $LogType = Read-Host -Prompt '[>] Log Type'
-        $IpAddress = Read-Host -Prompt '[>] Logstash Server IP Addresss'
-        $Port = Read-Host -Prompt '[>] Logstash Server Port'
-        $LogstashServer = $IpAddress + ':' + $Port
-    } else {
-        $Type = 'log'
-        $FilePath = 'C:\Windows\System32\LogFiles\Firewall\*.log'
-        $DocumentType = 'windowsfirewall'
-        $LogType = 'windowsfirewall'
-        $IpAddress = '192.168.3.9'
-        $Port = '5044'
-        $LogstashServer = $IpAddress + ':' + $Port
-    }
-    
     $Configuration = @(
         "filebeat.prospectors:",
         "- type: $Type",
@@ -141,6 +122,13 @@ function Main {
     $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Name }
     $InstallationFilePath = $env:ProgramData + '\' + $Name
     $ConfigurationFilePath = $InstallationFilePath + '\' + $ConfigurationFile
+    $Type = 'log'
+    $FilePath = 'C:\Windows\System32\LogFiles\Firewall\*.log'
+    $DocumentType = 'windowsfirewall'
+    $LogType = 'windowsfirewall'
+    $IpAddress = '192.168.3.9'
+    $Port = '5044'
+    $LogstashServer = $IpAddress + ':' + $Port
 
     if ($Remove) {
         Remove-Program 
@@ -159,3 +147,5 @@ Main
 # https://stackoverflow.com/questions/52113738/starting-ssh-agent-on-windows-10-fails-unable-to-start-ssh-agent-service-erro
 # https://stackoverflow.com/questions/2022326/terminating-a-script-in-powershell
 # https://stackoverflow.com/questions/26372360/powershell-script-indentation-for-long-strings
+# https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.management/new-service?view=powershell-7
+# https://www.elastic.co/guide/en/beats/filebeat/current/command-line-options.html
