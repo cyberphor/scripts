@@ -40,13 +40,13 @@ function Install-Program($Source) {
     }
 
     $Configuration = @(
+        "name: '$Shipper'",
+        "tags: ['$Tag']",
         "filebeat.prospectors:",
-        "- type: $Type",
+        "- type: log",
         "  enabled: true",
         "  paths:",
         "    - $FilePath",
-        "  document_type: $DocumentType", 
-        "  logtype: $LogType", 
         "output.logstash:", 
         "   hosts: ['$LogstashServer']"
     ) -join "`r`n"
@@ -99,11 +99,10 @@ function Main {
 
     $ServiceIsInstalled = Get-Service | Where-Object { $_.Name -like $Name }
     
-    $Type = 'log'
+    $Shipper = $env:COMPUTERNAME 
+    $Tag = 'windows-firewall' 
     $FilePath = 'C:\Windows\System32\LogFiles\Firewall\*.log'
-    $DocumentType = 'windowsfirewall'
-    $LogType = 'windowsfirewall'
-    $IpAddress = '192.168.3.9'
+    $IpAddress = '192.168.3.12'
     $Port = '5044'
     $LogstashServer = $IpAddress + ':' + $Port
 
@@ -131,3 +130,4 @@ Main
 # https://stackoverflow.com/questions/26372360/powershell-script-indentation-for-long-strings
 # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.management/new-service?view=powershell-7
 # https://www.elastic.co/guide/en/beats/filebeat/current/command-line-options.html
+# https://www.elastic.co/guide/en/beats/filebeat/current/configuration-filebeat-options.html
