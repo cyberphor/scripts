@@ -5,13 +5,17 @@ Param(
 )
 
 function Install-Program($Source) {
-    $Directory = @{}
-    Get-ChildItem $Source -Recurse | 
-    Select -Property Name, FullName |
-    ForEach-Object {
-        if ($Directory.Keys -notcontains $_.Name) {
-            $Directory.Add($_.Name, $_.FullName)
+    if (Test-Path $Source) {
+        $Directory = @{}
+        Get-ChildItem $Source -Recurse | 
+        Select -Property Name, FullName |
+        ForEach-Object {
+            if ($Directory.Keys -notcontains $_.Name) {
+                $Directory.Add($_.Name, $_.FullName)
+            }
         }
+    } else {
+        Write-Host "[x] Folder does not exist: $Source"
     }
      
     $FilesToCopy = @()
@@ -113,10 +117,7 @@ function Main {
         $GroupPolicyObject = ($SysVol | Where-Object { $_.Name -eq $Program }).DirectoryName
         Install-Program($GroupPolicyObject)
     } elseif ($From) {
-        $OriginalDirectory = $PWD
-        Set-Location $From
-        Install-Program($PWD)
-        Set-Location $OriginalDirectory
+        Install-Program($From)
     } else {
         Install-Program($PWD)
     }
