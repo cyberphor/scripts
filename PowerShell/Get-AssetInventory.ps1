@@ -35,3 +35,5 @@ Main
 # REFERENCES
 # https://stackoverflow.com/questions/16360019/how-do-i-add-multi-threading
 # https://stackoverflow.com/questions/15120597/passing-multiple-values-to-a-single-powershell-script-parameter
+# https://stackoverflow.com/questions/13264369/how-to-pass-array-of-arguments-to-powershell-commandline
+# https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/start-job?view=powershell-7
