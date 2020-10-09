@@ -14,3 +14,6 @@ for file in $(cat $MISSING_FILES); do
         fi
     fi
 done
+
+# vim twcfg.txt
+# SYSLOGREPORTING   =true
