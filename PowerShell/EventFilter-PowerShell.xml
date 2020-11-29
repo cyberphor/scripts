@@ -1,0 +1,7 @@
+<QueryList>
+  <Query Id="0" Path="ForwardedEvents">
+    <Select Path="ForwardedEvents">
+*[EventData[Data[@Name='ParentProcessName'] and (Data='C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe')]]
+</Select>
+  </Query>
+</QueryList>
