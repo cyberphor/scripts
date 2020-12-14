@@ -1,8 +1,7 @@
 
-#$Log = "ForwardedEvents"
 $Log = "Security"
-$CsvFilePath = "~/Desktop/LogReview_Raw_$(Get-Date -Format yyyyMMdd-HHmm).csv"
-$LogReview = "~/Desktop/LogReview_$(Get-Date -Format yyyyMMdd-HHmm).csv"
+$ReviewProcessCreation = "~/Desktop/ProcessCreation_$(Get-Date -Format yyyyMMdd-HHmm).csv"
+$ReviewLogonLogff = "~/Desktop/LogonLogoff_$(Get-Date -Format yyyyMMdd-HHmm).csv"
 
 function Get-Credentials {
     $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -15,75 +14,52 @@ function Get-Credentials {
     }
 }
 
-function Get-ProcessExecution {
+function Get-ProcessCreation {
     Param([Parameter(ValueFromPipeline)]$Data)
     $XmlData = [xml]$Data.ToXml()
 
-    $TimeCreated = $Data.TimeCreated 
-    $RecordId = $Data.RecordId 
-    $UserName = $XmlData.Event.EventData.Data[1].'#text'
-    $Sid = $XmlData.Event.EventData.Data[0].'#text'
-    $ParentProcessName = $XmlData.Event.EventData.Data[13].'#text'
-    $CommandLine = $XmlData.Event.EventData.Data[8].'#text'
-
     $Event = New-Object -TypeName psobject
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $TimeCreated
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $RecordId
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $UserName
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $Sid
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $ParentProcessName
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandLine -Value $CommandLine
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $XmlData.Event.EventData.Data[13].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandLine -Value $XmlData.Event.EventData.Data[8].'#text'
     return $Event 
 }
 
-function New-LogReview {
-    $SearchCriteria = @{
-        LogName = $Log
-        Id = 4688
-    }
-    Get-WinEvent -FilterHashtable $SearchCriteria -ErrorAction SilentlyContinue |
-    Get-ProcessExecution |
-    Export-Csv -NoTypeInformation -Append -Path $CsvFilePath 
+function Get-LogonLogOff {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[5].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name IpAddress -Value $XmlData.Event.EventData.Data[18].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Port -Value $XmlData.Event.EventData.Data[19].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name LogonType -Value $XmlData.Event.EventData.Data[8].'#text'
+    return $Event
+    #> 
 }
 
-function Export-LogReview {
-    Start-Sleep -Seconds 1
-    if (Test-Path $CsvFilePath) {
-        $Excel = New-Object -ComObject excel.application
-        $Excel.Visible = $false
-        $Workbook = $Excel.Workbooks.Add()
-        $Sheet = $Workbook.Worksheets.Item(1)
-        $Sheet.Name = 'ProcessExecution'
-
-        $Sheet.Cells.Item(1,1) = 'TimeCreated'
-        $Sheet.Cells.Item(1,2) = 'RecordId'
-        $Sheet.Cells.Item(1,3) = 'UserName'
-        $Sheet.Cells.Item(1,4) = 'Sid'
-        $Sheet.Cells.Item(1,5) = 'ParentProcessName'
-        $Sheet.Cells.Item(1,6) = 'CommandLine'
-
-        $Records = Import-Csv -Path $CsvFilePath
-        $Offset = 2
-
-        foreach ($Record in $Records) {
-            $Record
-            $Excel.Cells.Item($Offset,1) = $Record.TimeCreated
-            $Sheet.Cells.Item($Offset,2) = $Record.RecordId
-            $Sheet.Cells.Item($Offset,3) = $Record.UserName
-            $Sheet.Cells.Item($Offset,4) = $Record.Sid
-            $Sheet.Cells.Item($Offset,5) = $Record.ParentProcessName
-            $Sheet.Cells.Item($Offset,6) = $Record.CommandLine
-            $Offset++
-        }
-
-        $Workbook.SaveAs($LogReview)
-        $Excel.Quit()
-    }
+function New-LogReview {
+<#
+    $FilterProcessCreation = @{ LogName = $Log; Id = 4688 }
+    Get-WinEvent -FilterHashtable $FilterProcessCreation |
+    ForEach-Object { $_ | Get-ProcessExecution } | 
+    Export-Csv -NoTypeInformation -Append -Path $LogReview
+#>
+    $FilterLogonLogoff = @{ LogName = $Log; Id = 4624,4625 }
+    Get-WinEvent -FilterHashtable $FilterLogonLogoff | 
+    ForEach-Object { $_ | Get-LogonLogOff } |
+    Export-Csv -NoTypeInformation -Append -Path $LogReview
+    #>
 }
 
 Get-Credentials
 New-LogReview
-Export-LogReview
 
 <#
 REFERENCES
@@ -91,18 +67,4 @@ https://social.technet.microsoft.com/Forums/scriptcenter/en-US/2a3abb64-a686-466
 https://powershell.org/forums/topic/get-info-from-an-eventlog-message-generaldetails-pane/
 https://community.spiceworks.com/how_to/137203-create-an-excel-file-from-within-powershell
 https://docs.microsoft.com/en-us/powershell/scripting/developer/cmdlet/approved-verbs-for-windows-powershell-commands?view=powershell-7.1
-
-
-EVENT LOG ANALYSIS 
-Time: TimeCreated
-EventId: Id
-EventCategory: LevelDisplayName 
-UserAccount: UserId; Message - Security ID
-Description: Message
-Hostname: Message
-IpAddress: Message - Source Address, Source Port, Destination Address, Destination Port 
-Files: Message
-Folders: Message
-Printers: Message
-Services: Message
 #>
