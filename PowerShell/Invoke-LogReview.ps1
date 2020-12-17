@@ -104,7 +104,8 @@ function New-LogReview {
     }
 
     if (-not(Test-Path $LogReview)) {
-        New-Item -ItemType Directory $LogReview
+        New-Item -ItemType Directory $LogReview  | 
+        Out-Null
     }
 
     Get-WinEvent -FilterHashtable $SearchCriteria | 
