@@ -26,7 +26,7 @@ function Get-Logon {
     return $Event
 }
 
-function Get-Logoff {
+function Get-LogonFailure {
     Param([Parameter(ValueFromPipeline)]$Data)
     $XmlData = [xml]$Data.ToXml()
 
@@ -42,11 +42,26 @@ function Get-Logoff {
     return $Event
 }
 
+function Get-Logoff {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name LogonType -Value $XmlData.Event.EventData.Data[4].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name IpAddress -Value '-'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Port -Value '-'
+    return $Event
+}
+
 function Get-ProcessCreation {
     Param([Parameter(ValueFromPipeline)]$Data)
     $XmlData = [xml]$Data.ToXml()
 
-    $Category = 'ProcessCreation'
     $Event = New-Object -TypeName psobject
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
@@ -58,10 +73,37 @@ function Get-ProcessCreation {
     return $Event 
 }
 
+function Get-FilteringPlatformConnection {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[0].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Protocol -Value $XmlData.Event.EventData.Data[7].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name SourceAddress -Value $XmlData.Event.EventData.Data[3].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name SourcePort -Value $XmlData.Event.EventData.Data[4].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name DestinationPort -Value $XmlData.Event.EventData.Data[6].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name DestinationAddress -Value $XmlData.Event.EventData.Data[5].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Program -Value $XmlData.Event.EventData.Data[1].'#text'
+    return $Event
+}
+
 function New-LogReview {
     $Log = "Security"
     $DateTime = Get-Date -Format yyyy-MM-dd-HHmm
-    $SearchCriteria = @{ LogName = $Log; Id = 4624,4625,4688 }
+
+    <#
+    $24_hours_ago = (Get-Date).AddHours(-24)
+    $SearchCriteria = @{ 
+        LogName = $Log; 
+        TimeCreated -le $24_hours_ago;
+        Id = 4624,4625,4634,4688,5156,5168 }
+    #>
+
+    $SearchCriteria = @{ LogName = $Log; Id = 4624,4625,4634,4688,5156,5168 }
     Get-WinEvent -FilterHashtable $SearchCriteria | 
     ForEach-Object { 
         if ($_.Id -eq '4624') {
@@ -72,12 +114,22 @@ function New-LogReview {
         } elseif ($_.Id -eq '4625') {
             $Category = 'LogonLogoff'
             $_ | 
+            Get-LogonFailure | 
+            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+        } elseif ($_.Id -eq '4634') {
+            $Category = 'LogonLogoff'
+            $_ | 
             Get-Logoff | 
             Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
         } elseif ($_.Id -eq '4688') {
             $Category = 'ProcessCreation'
             $_ | 
-            Get-ProcessCreation | 
+            Get-ProcessCreation #| 
+            #Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+        } elseif ($_.Id -eq '5156') {
+            $Category = 'FilteringPlatformConnection'
+            $_ | 
+            Get-FilteringPlatformConnection | 
             Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
         }
     }
