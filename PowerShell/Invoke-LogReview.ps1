@@ -66,6 +66,7 @@ function Get-ProcessCreation {
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
     Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[7].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $XmlData.Event.EventData.Data[13].'#text'
@@ -124,8 +125,8 @@ function New-LogReview {
         } elseif ($_.Id -eq '4688') {
             $Category = 'ProcessCreation'
             $_ | 
-            Get-ProcessCreation #| 
-            #Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Get-ProcessCreation | 
+            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
         } elseif ($_.Id -eq '5156') {
             $Category = 'FilteringPlatformConnection'
             $_ | 
