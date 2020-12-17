@@ -95,43 +95,45 @@ function Get-FilteringPlatformConnection {
 function New-LogReview {
     $Log = "Security"
     $DateTime = Get-Date -Format yyyy-MM-dd-HHmm
-
-    <#
-    $24_hours_ago = (Get-Date).AddHours(-24)
+    $LogReview = "C:\Users\Public\LogReview_$DateTime"
     $SearchCriteria = @{ 
         LogName = $Log; 
-        TimeCreated -le $24_hours_ago;
-        Id = 4624,4625,4634,4688,5156,5168 }
-    #>
+        StartTime = (Get-Date).AddDays(-1);
+        EndTime = (Get-Date);
+        Id = 4624,4625,4634,4688,5156
+    }
 
-    $SearchCriteria = @{ LogName = $Log; Id = 4624,4625,4634,4688,5156,5168 }
+    if (-not(Test-Path $LogReview)) {
+        New-Item -ItemType Directory $LogReview
+    }
+
     Get-WinEvent -FilterHashtable $SearchCriteria | 
     ForEach-Object { 
         if ($_.Id -eq '4624') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-Logon | 
-            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
         } elseif ($_.Id -eq '4625') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-LogonFailure | 
-            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
         } elseif ($_.Id -eq '4634') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-Logoff | 
-            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
         } elseif ($_.Id -eq '4688') {
             $Category = 'ProcessCreation'
             $_ | 
             Get-ProcessCreation | 
-            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
         } elseif ($_.Id -eq '5156') {
             $Category = 'FilteringPlatformConnection'
             $_ | 
             Get-FilteringPlatformConnection | 
-            Export-Csv -NoTypeInformation -Append -Path "./$Category-$DateTime.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
         }
     }
 }
