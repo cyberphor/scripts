@@ -149,4 +149,5 @@ https://powershell.org/forums/topic/get-info-from-an-eventlog-message-generaldet
 https://community.spiceworks.com/how_to/137203-create-an-excel-file-from-within-powershell
 https://docs.microsoft.com/en-us/powershell/scripting/developer/cmdlet/approved-verbs-for-windows-powershell-commands?view=powershell-7.1
 https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventid=4624
+https://robwillis.info/2019/10/everything-you-need-to-know-to-get-started-logging-powershell/
 #>
