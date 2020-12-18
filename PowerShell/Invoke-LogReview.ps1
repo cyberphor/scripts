@@ -10,6 +10,52 @@ function Get-Credentials {
     }
 }
 
+function Get-PowerShellModules {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $User = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[13].Split("=")[1].TrimStart()
+    $PowerShellVersion = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[5].Split("=")[1].TrimStart()
+    $Script = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[10].Split("=")[1].TrimStart()
+    $CommandName = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[8].Split("=")[1].TrimStart()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $Data.ProcessId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $Data.UserId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name User -Value $User
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name PowerShellVersion -Value $PowerShellVersion
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Script -Value $Script
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandName -Value $CommandName
+    return $Event
+}
+
+<#
+function Get-PowerShellScriptBlocks {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $User = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[13].Split("=")[1].TrimStart()
+    $PowerShellVersion = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[5].Split("=")[1].TrimStart()
+    $Script = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[10].Split("=")[1].TrimStart()
+    $CommandName = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[8].Split("=")[1].TrimStart()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $Data.ProcessId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $Data.UserId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name User -Value $User
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name PowerShellVersion -Value $PowerShellVersion
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Script -Value $Script
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandName -Value $CommandName
+    return $XmlData.Event.EventData.Data[0]
+}
+#>
+
 function Get-Logon {
     Param([Parameter(ValueFromPipeline)]$Data)
     $XmlData = [xml]$Data.ToXml()
@@ -93,48 +139,59 @@ function Get-FilteringPlatformConnection {
 }
 
 function New-LogReview {
-    $Log = "Security"
-    $DateTime = Get-Date -Format yyyy-MM-dd-HHmm
-    $LogReview = "C:\Users\Public\LogReview_$DateTime"
+    $Logs = "Security", "Microsoft-Windows-PowerShell/Operational"
+    $Dropbox = "C:\Users\Public\LogReview"
+    $Folder = $Dropbox + "\LogReview_" + $(Get-Date -Format yyyy-MM-dd-HHmm)
+
     $SearchCriteria = @{ 
-        LogName = $Log; 
-        StartTime = (Get-Date).AddDays(-1);
+        LogName = $Logs; 
+        StartTime = (Get-Date).AddDays(-3);
         EndTime = (Get-Date);
-        Id = 4624,4625,4634,4688,5156
+        Id = 4103,4104,4624,4625,4634,4688,5156
     }
 
-    if (-not(Test-Path $LogReview)) {
-        New-Item -ItemType Directory $LogReview  | 
+    if (-not(Test-Path $Dropbox)) {
+        New-Item -ItemType Directory $Dropbox  | 
+        Out-Null
+    }
+
+    if (-not(Test-Path $Folder)) {
+        New-Item -ItemType Directory $Folder  | 
         Out-Null
     }
 
     Get-WinEvent -FilterHashtable $SearchCriteria | 
     ForEach-Object { 
-        if ($_.Id -eq '4624') {
+        if ($_.Id -eq '4103') {
+            $Category = 'PowerShell'
+            $_ | 
+            Get-PowerShellModules |  
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
+        } elseif ($_.Id -eq '4624') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-Logon | 
-            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         } elseif ($_.Id -eq '4625') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-LogonFailure | 
-            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         } elseif ($_.Id -eq '4634') {
             $Category = 'LogonLogoff'
             $_ | 
             Get-Logoff | 
-            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         } elseif ($_.Id -eq '4688') {
             $Category = 'ProcessCreation'
             $_ | 
             Get-ProcessCreation | 
-            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         } elseif ($_.Id -eq '5156') {
             $Category = 'FilteringPlatformConnection'
             $_ | 
             Get-FilteringPlatformConnection | 
-            Export-Csv -NoTypeInformation -Append -Path "$LogReview\$Category.csv"
+            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         }
     }
 }
@@ -149,5 +206,5 @@ https://powershell.org/forums/topic/get-info-from-an-eventlog-message-generaldet
 https://community.spiceworks.com/how_to/137203-create-an-excel-file-from-within-powershell
 https://docs.microsoft.com/en-us/powershell/scripting/developer/cmdlet/approved-verbs-for-windows-powershell-commands?view=powershell-7.1
 https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventid=4624
-https://robwillis.info/2019/10/everything-you-need-to-know-to-get-started-logging-powershell/
+https://stackoverflow.com/questions/42260709/powershell-separate-and-parse-multiline-string
 #>
