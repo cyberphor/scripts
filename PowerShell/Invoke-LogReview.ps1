@@ -14,21 +14,23 @@ function Get-PowerShellModules {
     Param([Parameter(ValueFromPipeline)]$Data)
     $XmlData = [xml]$Data.ToXml()
 
-    $User = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[13].Split("=")[1].TrimStart()
+    $ParentProcessName = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[4].Split("=")[1].TrimStart()
     $PowerShellVersion = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[5].Split("=")[1].TrimStart()
+    $Command = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[8].Split("=")[1].TrimStart()
     $Script = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[10].Split("=")[1].TrimStart()
-    $CommandName = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[8].Split("=")[1].TrimStart()
+    $UserName = ($XmlData.Event.EventData.Data[0].'#text' -split "`n")[13].Split("=")[1].TrimStart()
 
     $Event = New-Object -TypeName psobject
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
     Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
     Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $Data.ProcessId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $UserName
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $Data.UserId
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name User -Value $User
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $ParentProcessName
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Command -Value $Command
     Add-Member -InputObject $Event -MemberType NoteProperty -Name PowerShellVersion -Value $PowerShellVersion
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Script -Value $Script
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandName -Value $CommandName
     return $Event
 }
 
@@ -64,6 +66,7 @@ function Get-Logon {
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
     Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    #Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[7].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[5].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name LogonType -Value $XmlData.Event.EventData.Data[8].'#text'
@@ -80,6 +83,7 @@ function Get-LogonFailure {
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
     Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    #Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[7].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[5].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name LogonType -Value $XmlData.Event.EventData.Data[10].'#text'
@@ -96,6 +100,7 @@ function Get-Logoff {
     Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
     Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
     Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    #Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[7].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name LogonType -Value $XmlData.Event.EventData.Data[4].'#text'
@@ -116,8 +121,26 @@ function Get-ProcessCreation {
     Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
     Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $XmlData.Event.EventData.Data[13].'#text'
-    Add-Member -InputObject $Event -MemberType NoteProperty -Name CommandLine -Value $XmlData.Event.EventData.Data[8].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Command -Value $XmlData.Event.EventData.Data[8].'#text'
     return $Event 
+}
+
+function Get-ProcessCreationPowerShell {
+    Param([Parameter(ValueFromPipeline)]$Data)
+    $XmlData = [xml]$Data.ToXml()
+
+    $Event = New-Object -TypeName psobject
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name TimeCreated -Value $Data.TimeCreated
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name RecordId -Value $Data.RecordId
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name EventId -Value $Data.Id 
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ProcessId -Value $XmlData.Event.EventData.Data[7].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name UserName -Value $XmlData.Event.EventData.Data[1].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $XmlData.Event.EventData.Data[0].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name ParentProcessName -Value $XmlData.Event.EventData.Data[13].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Command -Value $XmlData.Event.EventData.Data[8].'#text'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name PowerShellVersion -Value '-'
+    Add-Member -InputObject $Event -MemberType NoteProperty -Name Script -Value '-'
+    return $Event
 }
 
 function Get-FilteringPlatformConnection {
@@ -183,10 +206,20 @@ function New-LogReview {
             Get-Logoff | 
             Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
         } elseif ($_.Id -eq '4688') {
-            $Category = 'ProcessCreation'
-            $_ | 
-            Get-ProcessCreation | 
-            Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
+            $XmlData = [xml]$_.ToXml()
+            $NewProcessName = $XmlData.Event.EventData.Data[5].'#text'
+            $ParentProcessName = $XmlData.Event.EventData.Data[13].'#text'
+            if (($NewProcessName -like '*powershell*') -or ($ParentProcessName -like '*powershell*')) {
+                $Category = 'PowerShell'
+                $_ | 
+                Get-ProcessCreationPowerShell | 
+                Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
+            } else {
+                $Category = 'ProcessCreation'
+                $_ | 
+                Get-ProcessCreation | 
+                Export-Csv -NoTypeInformation -Append -Path "$Folder\$Category.csv"
+            }
         } elseif ($_.Id -eq '5156') {
             $Category = 'FilteringPlatformConnection'
             $_ | 
