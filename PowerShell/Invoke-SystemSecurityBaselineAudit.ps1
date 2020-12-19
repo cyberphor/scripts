@@ -16,14 +16,21 @@ function Get-BaselineProcessDeviations {
     # ForEach-Object { "'" + $_ + "'," }
     $BaselineProcesses = 
         'ApplicationFrameHost',
-        'backgroundTaskHost',
         'csrss',
         'ctfmon',
         'dasHost',
         'dllhost',
         'dwm',
         'explorer',
+        'fontdrvhost',
+        'Idle',
+        'jhi_service',
+        'LockApp',
         'lsass',
+        'Memory Compression',
+        'Microsoft.Photos',
+        'ONENOTEM',
+        'powershell_ise',
         'Registry',
         'RtkAudUService64',
         'RuntimeBroker',
@@ -32,18 +39,33 @@ function Get-BaselineProcessDeviations {
         'SecurityHealthService',
         'SecurityHealthSystray',
         'services',
+        'SgrmBroker',
+        'ShellExperienceHost',
+        'sihost',
+        'SkypeApp',
+        'SkypeBackgroundHost',
+        'smartscreen',
         'smss',
+        'spoolsv',
         'svchost',
+        'System',
+        'SystemSettings',
+        'taskhostw',
+        'unsecapp',
+        'UsbClientService',
+        'Video.UI',
+        'wininit',
+        'winlogon'
 
     Get-Process |
     ForEach-Object {
         if ($_.Name -notin $BaselineProcesses) {
             $Process = New-Object -TypeName psobject
-            Add-Member -InputObject $Process -MemberType NoteProperty -Name CreationTime -Value $_.StartTime
+            Add-Member -InputObject $Process -MemberType NoteProperty -Name StartTime -Value $_.StartTime
             #Add-Member -InputObject $Port -MemberType NoteProperty -Name Hostname -Value $Hostname
-            Add-Member -InputObject $Process -MemberType NoteProperty -Name OwningProcess -Value $_.Id
-            Add-Member -InputObject $Process -MemberType NoteProperty -Name LocalPort -Value $_.Name
-            Add-Member -InputObject $Process -MemberType NoteProperty -Name RemotePort -Value $_.Path
+            Add-Member -InputObject $Process -MemberType NoteProperty -Name Id -Value $_.Id
+            Add-Member -InputObject $Process -MemberType NoteProperty -Name Name -Value $_.Name
+            Add-Member -InputObject $Process -MemberType NoteProperty -Name Path -Value $_.Path
             return $Process
         }
     } 
@@ -74,6 +96,50 @@ function Get-BaselinePortDeviations {
     }
 }
 
+function Get-BaselineUserDeviations {
+    #Get-WmiObject -Class Win32_UserAccount | Select -ExpandProperty Name | Sort-Object | Get-Unique |
+    #ForEach-Object { "'" + $_ + "'," }
+    $BaselineUsers = 
+        'Administrator',
+        'Cristal',
+        'DefaultAccount',
+        'Guest',
+        'Victor'
+
+    Get-WmiObject -Class Win32_UserAccount  |
+    ForEach-Object {
+        if ($_.Name -notin $BaselineUsers) {
+            $User = New-Object -TypeName psobject
+            #Add-Member -InputObject $User -MemberType NoteProperty -Name CreationTime -Value $_.CreationTime
+            #Add-Member -InputObject $User -MemberType NoteProperty -Name Hostname -Value $Hostname
+            Add-Member -InputObject $User -MemberType NoteProperty -Name Name -Value $_.Name
+            Add-Member -InputObject $User -MemberType NoteProperty -Name Sid -Value $_.Sid
+            return $User
+        }
+    }
+}
+
+function Get-BaselineAdminDeviations {
+    #Get-LocalGroupMember -Group "Administrators" | Select -ExpandProperty Name | 
+    #ForEach-Object { "'" + ($_).Split('\')[1] + "'," }
+    $BaselineAdmins = 
+        'Administrator',
+        'Elliot'
+
+    Get-LocalGroupMember -Group "Administrators" | 
+    ForEach-Object {
+        $Name = ($_.Name).Split('\')[1]
+        if ($Name -notin $BaselineAdmins) {
+            $Admin = New-Object -TypeName psobject
+            #Add-Member -InputObject $User -MemberType NoteProperty -Name CreationTime -Value $_.CreationTime
+            #Add-Member -InputObject $User -MemberType NoteProperty -Name Hostname -Value $Hostname
+            Add-Member -InputObject $Admin -MemberType NoteProperty -Name Name -Value $_.Name
+            Add-Member -InputObject $Admin -MemberType NoteProperty -Name Sid -Value $_.Sid
+            return $Admin
+        }
+    }
+}
+
 function New-SystemSecurityBaselineAudit {
     $Dropbox = "C:\Users\Public\BaselineAudit"
     $Folder = $Dropbox + "\BaselineAudit_" + $(Get-Date -Format yyyy-MM-dd-HHmm)
@@ -89,18 +155,14 @@ function New-SystemSecurityBaselineAudit {
 
     Get-BaselineProcessDeviations | Export-Csv -NoTypeInformation -Append -Path "$Folder\Processes.csv"
     Get-BaselinePortDeviations | Export-Csv -NoTypeInformation -Append -Path "$Folder\Ports.csv"
+    Get-BaselineUserDeviations | Export-Csv -NoTypeInformation -Append -Path "$Folder\Users.csv"
+    Get-BaselineAdminDeviations | Export-Csv -NoTypeInformation -Append -Path "$Folder\Admins.csv"
 }
 
 Get-Credentials
 New-SystemSecurityBaselineAudit
 
 <#
-# ACCOUNTS: Users
-Get-WmiObject -Class Win32_UserAccount | Select -ExpandProperty Name
-
-# ACCOUNTS: Local Administrators
-net localgroup administrators | Where-Object { $_ -and $_ -notmatch "The command completed successfully." } | Select -Skip 4
-
 # SMB USAGE: Local shares
 Get-SmbShare | Select Name, Path | Sort-Object -Property Path | Format-Table -AutoSize
 
