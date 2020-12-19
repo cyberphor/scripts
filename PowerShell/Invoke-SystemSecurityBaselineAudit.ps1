@@ -74,7 +74,7 @@ function Get-BaselineProcessDeviations {
 function Get-BaselinePortDeviations {
 
     #Get-NetTCPConnection | Select -ExpandProperty LocalPort | Sort-Object | Get-Unique |
-    # ForEach-Object { "'" + $_ + "'," }
+    #ForEach-Object { "'" + $_ + "'," }
     $BaselinePorts = 
         '135',
         '139',
@@ -97,12 +97,11 @@ function Get-BaselinePortDeviations {
 }
 
 function Get-BaselineUserDeviations {
+
     #Get-WmiObject -Class Win32_UserAccount | Select -ExpandProperty Name | Sort-Object | Get-Unique |
     #ForEach-Object { "'" + $_ + "'," }
     $BaselineUsers = 
         'Administrator',
-        'Cristal',
-        'DefaultAccount',
         'Guest',
         'Victor'
 
@@ -120,6 +119,7 @@ function Get-BaselineUserDeviations {
 }
 
 function Get-BaselineAdminDeviations {
+
     #Get-LocalGroupMember -Group "Administrators" | Select -ExpandProperty Name | 
     #ForEach-Object { "'" + ($_).Split('\')[1] + "'," }
     $BaselineAdmins = 
@@ -141,8 +141,10 @@ function Get-BaselineAdminDeviations {
 }
 
 function New-SystemSecurityBaselineAudit {
+
     $Dropbox = "C:\Users\Public\BaselineAudit"
     $Folder = $Dropbox + "\BaselineAudit_" + $(Get-Date -Format yyyy-MM-dd-HHmm)
+    
     if (-not(Test-Path $Dropbox)) {
         New-Item -ItemType Directory $Dropbox  | 
         Out-Null
