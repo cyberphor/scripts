@@ -10,23 +10,26 @@ function Get-Credentials {
     }
 }
 
-function Get-Assets {
-    $Assets = $(
+function Get-AssetsUnknown {
+    $AssetsUnknown = $(
         '192.168.3.1',
         '192.168.3.2',
-        '192.168.3.3'
+        '192.168.3.3',
+        '192.168.2.75',
+        '192.168.24.1',
+        '192.168.148.1'
     )
     
-    return $Assets
+    return $AssetsUnknown
 }
 
 function Get-AssetsOnline {
-    Param([Parameter(ValueFromPipeline)]$Assets)
+    Param([Parameter(ValueFromPipeline)]$AssetsUnknown)
     Process {
         $Jobs = @()
         $AssetsOnline = @()
         
-        $Assets | 
+        $AssetsUnknown | 
         ForEach-Object {      
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
                 $Timeout = 50
@@ -52,9 +55,51 @@ function Get-AssetsOnline {
     }
 }
 
+function Get-Assets {
+    Param([Parameter(ValueFromPipeline)]$AssetsOnline)
+    Process {
+        $Jobs = @()
+        $Assets = @()
+        
+        $AssetsOnline | 
+        ForEach-Object {
+            Start-Job -Name $_ -ArgumentList $_ -ScriptBlock {
+                Invoke-Command -ScriptBlock {
+                    (Get-WmiObject -Class Win32_BIOS).PSComputerName
+                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                    (Get-WmiObject -Class Win32_BIOS).SerialNumber
+                    # Get MAC Address
+                }
+            } | Out-Null
+            $Jobs += $_
+        }
+
+        While ((Get-Job).State -ne 'Completed') {
+            Start-Sleep -Seconds 1
+        }
+
+        $Jobs | 
+        ForEach-Object {
+            $Data = (Receive-Job -Name $_ -ErrorAction Ignore)
+            $Asset = New-Object -TypeName psobject
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Address $_
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Hostname $Data[0]
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[1]
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[2]
+            #Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress $Data[3]
+            $Assets += $Asset
+        }
+
+        return $Assets
+    }
+}
+
 function New-AssetInventory {
-    Get-Assets |
-    Get-AssetsOnline
+    Get-AssetsUnknown |
+    Get-AssetsOnline |
+    Get-Assets | 
+    Sort-Object { $_.Address -as [Version] } |
+    Format-Table
 }
 
 Get-Credentials
@@ -70,4 +115,5 @@ https://stackoverflow.com/questions/27613836/how-to-pass-multiple-objects-via-th
 https://info.sapien.com/index.php/scripting/scripting-how-tos/take-values-from-the-pipeline-in-powershell
 https://stackoverflow.com/questions/48946924/powershell-function-not-accepting-array-of-objects
 https://www.reddit.com/r/PowerShell/comments/6eyhpv/whats_the_quickest_way_to_ping_a_computer/
+https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/sort-ipv4-addresses-correctly
 #>
