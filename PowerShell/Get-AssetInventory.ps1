@@ -10,14 +10,22 @@ function Get-Credentials {
     }
 }
 
+function Get-ApprovedAssetInventory {
+    $ApprovedAssetInventory = Import-Csv './ApprovedAssetInventory.csv'
+    return $ApprovedAssetInventory
+}
+
 function Get-AssetsUnknown {
     $AssetsUnknown = $(
         '192.168.3.1',
+        '192.168.3.10'
         '192.168.3.2',
         '192.168.3.3',
         '192.168.2.75',
         '192.168.24.1',
-        '192.168.148.1'
+        '192.168.148.1',
+        '192.168.3.100',
+        '10.10.10.7'
     )
     
     return $AssetsUnknown
@@ -66,9 +74,8 @@ function Get-Assets {
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock {
                 Invoke-Command -ScriptBlock {
                     (Get-WmiObject -Class Win32_BIOS).PSComputerName
-                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                    (Get-WmiObject -Class Win32_ComputerSystem).Username
                     (Get-WmiObject -Class Win32_BIOS).SerialNumber
-                    # Get MAC Address
                 }
             } | Out-Null
             $Jobs += $_
@@ -86,7 +93,6 @@ function Get-Assets {
             Add-Member -InputObject $Asset -MemberType NoteProperty -Name Hostname $Data[0]
             Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[1]
             Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[2]
-            #Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress $Data[3]
             $Assets += $Asset
         }
 
@@ -99,7 +105,7 @@ function New-AssetInventory {
     Get-AssetsOnline |
     Get-Assets | 
     Sort-Object { $_.Address -as [Version] } |
-    Format-Table
+    Export-Csv -NoTypeInformation -Append ".\CurrentAssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
 }
 
 Get-Credentials
