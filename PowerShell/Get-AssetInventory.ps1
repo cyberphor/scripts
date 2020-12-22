@@ -74,6 +74,7 @@ function Get-Names {
         ForEach-Object {      
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
                 Resolve-DnsName $args[0] -ErrorAction Ignore
+                #Resolve-DnsName $args[0] -DnsOnly -ErrorAction Ignore
             } | Out-Null
             $Jobs += $_
         }
@@ -115,14 +116,16 @@ function Get-AssetInventory {
 
         $Jobs | 
         ForEach-Object {
-            $Data = Receive-Job -Name $_ -ErrorAction Ignore
-            if ($Data -ne $null) {
-                $Asset = New-Object -TypeName psobject
-                Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress '-'
-                Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress '-'
-                Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[0]
-                Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[1]
-                $AssetInventory += $Asset
+            if ($_ -ne $null) {
+                $Data = Receive-Job -Name $_ -ErrorAction Ignore
+                if ($Data -ne $null) {
+                    $Asset = New-Object -TypeName psobject
+                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress '-'
+                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress '-'
+                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[0]
+                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[1]
+                    $AssetInventory += $Asset
+                }
             }
         }
 
