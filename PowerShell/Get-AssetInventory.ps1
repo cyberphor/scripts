@@ -1,3 +1,7 @@
+Param(
+    [switch]$ExportToCsvFile,
+    [string]$File
+)
 
 function Get-Credentials {
     $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -10,34 +14,31 @@ function Get-Credentials {
     }
 }
 
-function Get-ApprovedAssetInventory {
-    $ApprovedAssetInventory = Import-Csv './ApprovedAssetInventory.csv'
-    return $ApprovedAssetInventory
+function Get-Assets {
+    if ($File) {
+        $Assets = Get-Content $File
+    } else { 
+        $Assets = $(
+            '192.168.3.1',
+            '192.168.3.2',
+            '192.168.3.3',
+            '192.168.3.100'
+            '192.168.2.75',
+            '192.168.24.1',
+            '192.168.148.1'
+        )
+    }
+        
+    return $Assets
 }
 
-function Get-AssetsUnknown {
-    $AssetsUnknown = $(
-        '192.168.3.1',
-        '192.168.3.10'
-        '192.168.3.2',
-        '192.168.3.3',
-        '192.168.2.75',
-        '192.168.24.1',
-        '192.168.148.1',
-        '192.168.3.100',
-        '10.10.10.7'
-    )
-    
-    return $AssetsUnknown
-}
-
-function Get-AssetsOnline {
-    Param([Parameter(ValueFromPipeline)]$AssetsUnknown)
+function Get-Addresses {
+    Param([Parameter(ValueFromPipeline)]$Assets)
     Process {
         $Jobs = @()
-        $AssetsOnline = @()
+        $Addresses = @()
         
-        $AssetsUnknown | 
+        $Assets | 
         ForEach-Object {      
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
                 $Timeout = 50
@@ -55,26 +56,53 @@ function Get-AssetsOnline {
         ForEach-Object {
             $Status = (Receive-Job -Name $_ -ErrorAction Ignore).Status
             if ($Status -eq 'Success') {
-                $AssetsOnline += $_
+                $Addresses += $_
             }
         }
 
-        return $AssetsOnline
+        return $Addresses
     }
 }
 
-function Get-Assets {
-    Param([Parameter(ValueFromPipeline)]$AssetsOnline)
+function Get-Names {
+    Param([Parameter(ValueFromPipeline)]$Addresses)
     Process {
         $Jobs = @()
-        $Assets = @()
+        $Names = @()
         
-        $AssetsOnline | 
+        $Addresses | 
+        ForEach-Object {      
+            Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
+                Resolve-DnsName $args[0] -ErrorAction Ignore
+            } | Out-Null
+            $Jobs += $_
+        }
+
+        While ((Get-Job).State -ne 'Completed') {
+            Start-Sleep -Seconds 1
+        }
+
+        $Jobs | 
+        ForEach-Object {
+            $Name = (Receive-Job -Name $_ -ErrorAction Ignore).NameHost
+            $Names += $Name
+        }
+
+        return $Names
+    }
+}
+
+function Get-AssetInventory {
+    Param([Parameter(ValueFromPipeline)]$Names)
+    Process {
+        $Jobs = @()
+        $AssetInventory = @()
+        
+        $Names | 
         ForEach-Object {
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock {
-                Invoke-Command -ScriptBlock {
-                    (Get-WmiObject -Class Win32_BIOS).PSComputerName
-                    (Get-WmiObject -Class Win32_ComputerSystem).Username
+                Invoke-Command -ComputerName $args[0] -ScriptBlock {
+                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
                     (Get-WmiObject -Class Win32_BIOS).SerialNumber
                 }
             } | Out-Null
@@ -87,29 +115,37 @@ function Get-Assets {
 
         $Jobs | 
         ForEach-Object {
-            $Data = (Receive-Job -Name $_ -ErrorAction Ignore)
-            $Asset = New-Object -TypeName psobject
-            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Address $_
-            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Hostname $Data[0]
-            Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[1]
-            Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[2]
-            $Assets += $Asset
+            $Data = Receive-Job -Name $_ -ErrorAction Ignore
+            if ($Data -ne $null) {
+                $Asset = New-Object -TypeName psobject
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress '-'
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress '-'
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[0]
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[1]
+                $AssetInventory += $Asset
+            }
         }
 
-        return $Assets
+        return $AssetInventory
     }
 }
 
 function New-AssetInventory {
-    Get-AssetsUnknown |
-    Get-AssetsOnline |
-    Get-Assets | 
-    Sort-Object { $_.Address -as [Version] } |
-    Export-Csv -NoTypeInformation -Append ".\CurrentAssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
+    Get-Assets |
+    Get-Addresses |
+    Get-Names |
+    Get-AssetInventory #|
+    #Sort-Object { $_.Address -as [Version] }
 }
 
 Get-Credentials
-New-AssetInventory
+if ($ExportToCsvFile) {
+    New-AssetInventory |
+    Export-Csv -NoTypeInformation "C:\Users\Public\Documents\AssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
+} else {
+    New-AssetInventory |
+    Format-Table -AutoSize
+}
 
 <# REFERENCES
 https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
@@ -122,4 +158,6 @@ https://info.sapien.com/index.php/scripting/scripting-how-tos/take-values-from-t
 https://stackoverflow.com/questions/48946924/powershell-function-not-accepting-array-of-objects
 https://www.reddit.com/r/PowerShell/comments/6eyhpv/whats_the_quickest_way_to_ping_a_computer/
 https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/sort-ipv4-addresses-correctly
+https://www.sans.org/reading-room/whitepapers/critical/leveraging-asset-inventory-database-37507
+https://stackoverflow.com/questions/17696149/invoke-command-in-a-background-job
 #>
