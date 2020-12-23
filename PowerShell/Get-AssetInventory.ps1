@@ -1,6 +1,6 @@
 Param(
-    [switch]$ExportToCsvFile,
-    [string]$File
+    [string]$File,
+    [ipaddress]$NetworkId
 )
 
 function Get-Credentials {
@@ -16,139 +16,97 @@ function Get-Credentials {
 
 function Get-Assets {
     if ($File) {
-        $Assets = Get-Content $File
-    } else { 
-        $Assets = $(
-            '192.168.3.1',
-            '192.168.3.2',
-            '192.168.3.3',
-            '192.168.3.100'
-            '192.168.2.75',
-            '192.168.24.1',
-            '192.168.148.1'
-        )
-    }
-        
-    return $Assets
-}
-
-function Get-Addresses {
-    Param([Parameter(ValueFromPipeline)]$Assets)
-    Process {
-        $Jobs = @()
+        $Addresses = Get-Content $File
+    } elseif ($NetworkId) {
         $Addresses = @()
-        
-        $Assets | 
-        ForEach-Object {      
-            Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
-                $Timeout = 50
-                $Ping = New-Object System.Net.NetworkInformation.Ping
-                $Ping.Send($args[0], $Timeout)
-            } | Out-Null
-            $Jobs += $_
-        }
-
-        While ((Get-Job).State -ne 'Completed') {
-            Start-Sleep -Seconds 1
-        }
-
-        $Jobs | 
+        1..254 |
         ForEach-Object {
-            $Status = (Receive-Job -Name $_ -ErrorAction Ignore).Status
-            if ($Status -eq 'Success') {
-                $Addresses += $_
+            $Addresses += $NetworkId -replace ".$","$_"
+        }
+    } else {
+        $Addresses = @()
+        $NetworkId = 
+            '192.168.2.0',
+            '192.168.3.0'
+        $NetworkId |
+        ForEach-Object {
+            $Network = $_
+            1..254 |
+            ForEach-Object {
+                $Addresses += $Network -replace ".$","$_"
             }
         }
-
-        return $Addresses
     }
-}
-
-function Get-Names {
-    Param([Parameter(ValueFromPipeline)]$Addresses)
-    Process {
-        $Jobs = @()
-        $Names = @()
         
-        $Addresses | 
-        ForEach-Object {      
-            Start-Job -Name $_ -ArgumentList $_ -ScriptBlock { 
-                Resolve-DnsName $args[0] -ErrorAction Ignore
-                #Resolve-DnsName $args[0] -DnsOnly -ErrorAction Ignore
-            } | Out-Null
-            $Jobs += $_
-        }
-
-        While ((Get-Job).State -ne 'Completed') {
-            Start-Sleep -Seconds 1
-        }
-
-        $Jobs | 
-        ForEach-Object {
-            $Name = (Receive-Job -Name $_ -ErrorAction Ignore).NameHost
-            $Names += $Name
-        }
-
-        return $Names
-    }
-}
-
-function Get-AssetInventory {
-    Param([Parameter(ValueFromPipeline)]$Names)
-    Process {
-        $Jobs = @()
-        $AssetInventory = @()
-        
-        $Names | 
-        ForEach-Object {
+    $Addresses | 
+    ForEach-Object {
+        $Timeout = 50
+        $Ping = New-Object System.Net.NetworkInformation.Ping
+        $Status = $Ping.Send($_, $Timeout).Status
+        if ($Status -eq 'Success') {
             Start-Job -Name $_ -ArgumentList $_ -ScriptBlock {
-                Invoke-Command -ComputerName $args[0] -ScriptBlock {
-                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
-                    (Get-WmiObject -Class Win32_BIOS).SerialNumber
-                }
+                $IpAddress = $args[0] 
+                $HostName = (Resolve-DnsName $args[0] -ErrorAction Ignore).NameHost
+                if ($HostName) {
+                    Invoke-Command -ComputerName $HostName -ArgumentList $IpAddress,$HostName -ErrorAction Ignore -ScriptBlock {
+                        $IpAddress = $args[0]
+                        $MacAddress = Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
+                            Where-Object { $_.IpAddress -eq $IpAddress } | 
+                            Select -ExpandProperty MacAddress
+                        $SerialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
+                        $UserName = (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                        $MacAddress,$args[1],$SerialNumber,$UserName
+                    }
+                } 
             } | Out-Null
-            $Jobs += $_
+            
+            $Asset = New-Object -TypeName psobject
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Address -Value $_
+            return $Asset
+        }
+    }
+}
+
+function Get-Attributes {
+    Param([Parameter(ValueFromPipeline)]$Asset)
+    Process {
+        While ((Get-Job -Name $Asset.Address).State -ne 'Completed') {
+            Start-Sleep -Milliseconds 50
         }
 
-        While ((Get-Job).State -ne 'Completed') {
-            Start-Sleep -Seconds 1
+        $Attributes = (Receive-Job -Name $Asset.Address)
+        Remove-Job -Name $Asset.Address
+
+        if ($Attributes -ne $null) {
+            $MacAddress = $Attributes[0]
+            $HostName = $Attributes[1]
+            $SerialNumber = $Attributes[2]
+            $UserName = $Attributes[3]
+        } else {
+            $MacAddress = '-'
+            $HostName = '-'
+            $SerialNumber = '-'
+            $UserName = '-'
         }
 
-        $Jobs | 
-        ForEach-Object {
-            if ($_ -ne $null) {
-                $Data = Receive-Job -Name $_ -ErrorAction Ignore
-                if ($Data -ne $null) {
-                    $Asset = New-Object -TypeName psobject
-                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress '-'
-                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress '-'
-                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name CurrentUser $Data[0]
-                    Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber $Data[1]
-                    $AssetInventory += $Asset
-                }
-            }
-        }
-
-        return $AssetInventory
+        Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress -Value $MacAddress
+        Add-Member -InputObject $Asset -MemberType NoteProperty -Name HostName -Value $HostName
+        Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber -Value $SerialNumber
+        Add-Member -InputObject $Asset -MemberType NoteProperty -Name UserName -Value $UserName
+        Clear-Variable MacAddress,HostName,SerialNumber,UserName
+        $Asset
     }
 }
 
 function New-AssetInventory {
     Get-Assets |
-    Get-Addresses |
-    Get-Names |
-    Get-AssetInventory #|
-    #Sort-Object { $_.Address -as [Version] }
+    Get-Attributes |
+    Sort-Object { $_.Address -as [Version] } |
+    Format-Table -AutoSize
 }
 
 Get-Credentials
-if ($ExportToCsvFile) {
-    New-AssetInventory |
-    Export-Csv -NoTypeInformation "C:\Users\Public\Documents\AssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
-} else {
-    New-AssetInventory |
-    Format-Table -AutoSize
-}
+New-AssetInventory 
 
 <# REFERENCES
 https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
@@ -163,4 +121,7 @@ https://www.reddit.com/r/PowerShell/comments/6eyhpv/whats_the_quickest_way_to_pi
 https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/sort-ipv4-addresses-correctly
 https://www.sans.org/reading-room/whitepapers/critical/leveraging-asset-inventory-database-37507
 https://stackoverflow.com/questions/17696149/invoke-command-in-a-background-job
+https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
+https://devblogs.microsoft.com/scripting/two-simple-powershell-methods-to-remove-the-last-letter-of-a-string/
+https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
 #>
