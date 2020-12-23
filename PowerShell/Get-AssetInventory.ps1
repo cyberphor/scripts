@@ -1,6 +1,7 @@
 Param(
     [string]$File,
-    [ipaddress]$NetworkId
+    [ipaddress]$NetworkId,
+    [switch]$ExportToFile
 )
 
 function Get-Credentials {
@@ -31,7 +32,7 @@ function Get-Assets {
         $NetworkId |
         ForEach-Object {
             $Network = $_
-            1..254 |
+            99..100 |
             ForEach-Object {
                 $Addresses += $Network -replace ".$","$_"
             }
@@ -101,12 +102,24 @@ function Get-Attributes {
 function New-AssetInventory {
     Get-Assets |
     Get-Attributes |
-    Sort-Object { $_.Address -as [Version] } |
-    Format-Table -AutoSize
+    Sort-Object { $_.Address -as [Version] }
 }
 
 Get-Credentials
-New-AssetInventory 
+if ($ExportToFile) {
+    $Dropbox = "C:\Users\Public\Documents\AssetInventory\"
+    if (-not(Test-Path $Dropbox)) {
+        New-Item -ItemType Directory $Dropbox  | 
+        Out-Null
+    }
+    $CsvFile = $Dropbox + "AssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
+    New-AssetInventory |
+    Export-Csv -NoTypeInformation $CsvFile
+    Invoke-Item $Dropbox 
+} else {
+    New-AssetInventory |
+    Format-Table -AutoSize
+}
 
 <# REFERENCES
 https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
