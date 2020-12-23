@@ -32,7 +32,7 @@ function Get-Assets {
         $NetworkId |
         ForEach-Object {
             $Network = $_
-            99..100 |
+            1..254 |
             ForEach-Object {
                 $Addresses += $Network -replace ".$","$_"
             }
