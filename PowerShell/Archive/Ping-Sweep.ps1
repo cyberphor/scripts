@@ -1,7 +1,7 @@
 <#
     .NOTES
         Original Author: G.A.F.F. Jakobs
-        Created: August 30, 2014
+        Originally Created: August 30, 2014
     .LINK
         https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
 #>
@@ -12,8 +12,7 @@ Param(
     [System.Net.IPAddress]$StartAddress,
     [parameter(Mandatory = $true, Position = 1)]
     [System.Net.IPAddress]$EndAddress,
-    [int]$Interval = 30,
-    [Switch]$RawOutput = $false
+    [int]$Interval = 30
 )
 
 $Timeout = 2000
@@ -47,10 +46,7 @@ ForEach {
 
     try { 
         $Pending = (Get-Event -SourceIdentifier "ID-Ping*").Count 
-    } catch [System.InvalidOperationException]{ }
-
-    $index = [array]::indexof($IpRange,$_)
-    Start-Sleep -Milliseconds $Interval
+    } catch [System.InvalidOperationException] {}
 }
 
 while ($Pending -lt $IpTotal) {
@@ -59,26 +55,17 @@ while ($Pending -lt $IpTotal) {
     $Pending = (Get-Event -SourceIdentifier "ID-Ping*").Count
 }
 
-if ($RawOutput) {
-    $Reply = Get-Event -SourceIdentifier "ID-Ping*" | 
-        ForEach { 
-            if ($_.SourceEventArgs.Reply.Status -eq "Success") { 
-                $_.SourceEventArgs.Reply 
+$Reply = Get-Event -SourceIdentifier "ID-Ping*" | 
+    ForEach { 
+        if ($_.SourceEventArgs.Reply.Status -eq "Success") {
+            $_.SourceEventArgs.Reply | 
+            Select @{ Name="IPAddress"; Expression={$_.Address} },
+                   @{ Name="Bytes"; Expression={$_.Buffer.Length} },
+                   @{ Name="Ttl"; Expression={$_.Options.Ttl} },
+                   @{ Name="ResponseTime"; Expression={$_.RoundtripTime} }
             }
             Unregister-Event $_.SourceIdentifier
             Remove-Event $_.SourceIdentifier
-        }
-} else {
-    $Reply = Get-Event -SourceIdentifier "ID-Ping*" | 
-        ForEach { 
-            if ($_.SourceEventArgs.Reply.Status -eq "Success") {
-                $_.SourceEventArgs.Reply | 
-                Select @{ Name="IPAddress"; Expression={$_.Address} },
-                    @{ Name="Bytes"; Expression={$_.Buffer.Length} },
-                    @{ Name="Ttl"; Expression={$_.Options.Ttl} },
-                    @{ Name="ResponseTime"; Expression={$_.RoundtripTime} }
-            }
-            Unregister-Event $_.SourceIdentifier
-            Remove-Event $_.SourceIdentifier
-        }
-}
+    }
+    
+return $Reply 
