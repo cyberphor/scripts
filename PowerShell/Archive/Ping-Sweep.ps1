@@ -43,10 +43,6 @@ ForEach {
     Register-ObjectEvent -InputObject (Get-Variable $VarName -ValueOnly) -EventName PingCompleted -SourceIdentifier "ID-$VarName"
     (Get-Variable $VarName -ValueOnly).SendAsync($_,$Timeout,$VarName)
     Remove-Variable $VarName
-
-    try { 
-        $Pending = (Get-Event -SourceIdentifier "ID-Ping*").Count 
-    } catch [System.InvalidOperationException] {}
 }
 
 while ($Pending -lt $IpTotal) {
