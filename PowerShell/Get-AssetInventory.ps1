@@ -136,5 +136,7 @@ https://www.sans.org/reading-room/whitepapers/critical/leveraging-asset-inventor
 https://stackoverflow.com/questions/17696149/invoke-command-in-a-background-job
 https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
 https://devblogs.microsoft.com/scripting/two-simple-powershell-methods-to-remove-the-last-letter-of-a-string/
-https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
+https://www.pluralsight.com/blog/tutorials/measure-powershell-scripts-speed
+https://stackoverflow.com/questions/34113755/need-to-make-a-powershell-script-faster/34114444
+https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
 #>
