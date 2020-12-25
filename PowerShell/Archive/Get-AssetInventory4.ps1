@@ -71,3 +71,7 @@ $Assets = Get-Event -SourceIdentifier "ID-Ping*" |
     } | Sort-Object { $_.Address -as [Version] } 
     
 return $Assets
+
+<# REFERENCES
+https://stackoverflow.com/questions/9566052/how-to-check-network-port-access-and-display-useful-message
+#>
