@@ -6,16 +6,12 @@
         https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
 #>
 
-[CmdletBinding(ConfirmImpact='Low')]
 Param(
     [parameter(Mandatory = $true, Position = 0)]
     [System.Net.IPAddress]$StartAddress,
     [parameter(Mandatory = $true, Position = 1)]
-    [System.Net.IPAddress]$EndAddress,
-    [int]$Interval = 30
+    [System.Net.IPAddress]$EndAddress
 )
-
-$Timeout = 2000
 
 function New-Range ($start, $end) {
     [byte[]]$BySt = $start.GetAddressBytes()
@@ -30,7 +26,7 @@ function New-Range ($start, $end) {
         [System.Net.IPAddress]::Parse($($ip -join '.'))
     }
 }
-    
+
 $IpRange = New-Range $StartAddress $EndAddress
 $IpTotal = $IpRange.Count
 Get-Event -SourceIdentifier "ID-Ping*" | Remove-Event
@@ -38,10 +34,10 @@ Get-EventSubscriber -SourceIdentifier "ID-Ping*" | Unregister-Event
 
 $IpRange | 
 ForEach {
-    [string]$VarName = "Ping_" + $_.Address
+    [string]$VarName = 'Ping_' + $_.Address
     New-Variable -Name $VarName -Value (New-Object System.Net.NetworkInformation.Ping)
     Register-ObjectEvent -InputObject (Get-Variable $VarName -ValueOnly) -EventName PingCompleted -SourceIdentifier "ID-$VarName"
-    (Get-Variable $VarName -ValueOnly).SendAsync($_,$Timeout,$VarName)
+    (Get-Variable $VarName -ValueOnly).SendAsync($_,2000,$VarName)
     Remove-Variable $VarName
 }
 
@@ -51,13 +47,27 @@ while ($Pending -lt $IpTotal) {
     $Pending = (Get-Event -SourceIdentifier "ID-Ping*").Count
 }
 
-$Addresses = Get-Event -SourceIdentifier "ID-Ping*" | 
+$Assets = Get-Event -SourceIdentifier "ID-Ping*" | 
     ForEach { 
-        if ($_.SourceEventArgs.Reply.Status -eq "Success") {
-            ($_.SourceEventArgs.Reply).Address.IpAddressToString
+        if ($_.SourceEventArgs.Reply.Status -eq 'Success') {
+            $Asset = New-Object -TypeName psobject
+
+            $IpAddress = ($_.SourceEventArgs.Reply).Address.IpAddressToString
             Unregister-Event $_.SourceIdentifier
             Remove-Event $_.SourceIdentifier
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Address -Value $IpAddress
+
+            $Client = New-Object Net.Sockets.TcpClient
+            $Client.Connect($IpAddress,135)
+            if ($Client.Connected) {
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name OperatingSystem -Value 'Windows'
+            } else {
+                Add-Member -InputObject $Asset -MemberType NoteProperty -Name OperatingSystem -Value '-'
+            }
+            $Client.Close()
+
+            $Asset
         }
-    } | Sort-Object { $_ -as [Version] } 
+    } | Sort-Object { $_.Address -as [Version] } 
     
-return $Addresses
+return $Assets
