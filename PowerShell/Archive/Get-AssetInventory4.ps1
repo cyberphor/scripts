@@ -74,4 +74,9 @@ return $Assets
 
 <# REFERENCES
 https://stackoverflow.com/questions/9566052/how-to-check-network-port-access-and-display-useful-message
+https://adamtheautomator.com/building-asynchronous-powershell-functions/
+https://stackoverflow.com/questions/11888342/how-do-i-add-an-event-handler-to-a-net-object-in-powershell
+https://powershell.org/forums/topic/event-handler-in-powershell/
+https://devblogs.microsoft.com/scripting/use-asynchronous-event-handling-in-powershell/
+http://www.powershellcookbook.com/recipe/WguS/create-and-respond-to-custom-events
 #>
