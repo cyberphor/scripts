@@ -1,5 +1,5 @@
 # Scripts
-> Includes code I wrote in Python, PowerShell, and other languages. 
+> Includes PowerShell, Python, and other scripts.
 
 * [BASH](/BASH/)
 * [PowerShell](/PowerShell/)
