@@ -1,3 +1,12 @@
+Param(
+    [switch]$CommandLine,
+    [switch]$FileShare,
+    [switch]$FileSystem,
+    [switch]$Firewall,
+    [switch]$Logon,
+    [switch]$ProcessCreation,
+    [switch]$Registry
+)
 
 function Get-AuditpolSettings {
     $Auditpol = auditpol /get /category:* 
@@ -40,7 +49,13 @@ function Get-AuditpolSettings {
     return $AuditpolSettings | Sort-Object -Property Setting -Descending
 }
 
-Get-AuditpolSettings
+if ($CommandLine) { Get-AuditpolSettings | Where-Object { $_.Category -like '*Command Line*'} }
+if ($FileShare) { Get-AuditpolSettings | Where-Object { $_.Category -like '*File Share*'} }
+if ($FileSystem) { Get-AuditpolSettings | Where-Object { $_.Category -like '*File System*' } }
+if ($Firewall) { Get-AuditpolSettings | Where-Object { $_.Category -like '*Filtering Platform*' } }
+if ($Logon) { Get-AuditpolSettings | Where-Object { $_.Category -like '*Logon*' } }
+if ($ProcessCreation) { Get-AuditpolSettings | Where-Object { $_.Category -like '*Process Creation*' } }
+if ($Registry) { Get-AuditpolSettings | Where-Object { $_.Category -like '*Registry*' } }
 
 <# REFERENCES
 https://stackoverflow.com/questions/5648931/test-if-registry-value-exists
