@@ -2,6 +2,7 @@
 > Includes PowerShell, Python, and other scripts.
 
 * [BASH](/BASH/)
+* [Golang](/Golang/)
 * [PowerShell](/PowerShell/)
 * [Python](/Python/)
 * [Ruby](/Ruby/)
