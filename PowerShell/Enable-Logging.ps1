@@ -1,30 +1,47 @@
 
-function Enable-Logging {
-    $Auditpol = 'C:\Windows\System32\auditpol.exe'
-    if (Test-Path $Auditpol) {
-        $Categories = 
-            "Process Creation",
-            "File Share",
-            "File System",
-            "Registry",
-            "Filtering Platform Connection",
-            "Logon"
+function Get-AuditpolSettings {
+    $Auditpol = auditpol /get /category:* 
+    $AuditpolSettings = @()
 
-        $Settings = '/set', "/subcategory:$Categories", '/success:enable'
-        Start-Process -FilePath $Auditpol -ArgumentList $Settings -NoNewWindow
-
-        $Settings = '/set', "/subcategory:$Categories", '/success:enable', '/failure:enable'
-        Start-Process -FilePath $Auditpol -ArgumentList $Settings -NoNewWindow
+    $Auditpol | 
+    Select-String 'Success' |
+    foreach {
+        $CategoryName = ($_ -split 'Success')[0].Trim()
+        $CategorySetting = 'Success ' + ($_ -split 'Success')[1].Trim()
+        $Category = New-Object psobject
+        Add-Member -InputObject $Category -MemberType NoteProperty -Name Category -Value $CategoryName
+        Add-Member -InputObject $Category -MemberType NoteProperty -Name Setting -Value $CategorySetting
+        $AuditpolSettings = $AuditpolSettings + $Category
     }
 
-    $Key = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit'
-    if (-not (Test-Path $Key)) {
-        $ValueName = 'ProcessCreationIncludeCmdLine_Enabled'
-        $Value = 1
-        $Type = 'Dword'
-        New-Item –Path $Key –Name $ValueName
-        New-ItemProperty -Path $Key -Name $ValueName -Value $Value -PropertyType $Type
+    $Auditpol | 
+    Select-String 'No Auditing' |
+    foreach {
+        $CategoryName = ($_ -split 'No Auditing')[0].Trim()
+        $CategorySetting = 'No Auditing ' + ($_ -split 'No Auditing')[1].Trim()
+        $Category = New-Object psobject
+        Add-Member -InputObject $Category -MemberType NoteProperty -Name Category -Value $CategoryName
+        Add-Member -InputObject $Category -MemberType NoteProperty -Name Setting -Value $CategorySetting
+        $AuditpolSettings = $AuditpolSettings + $Category
     }
+
+    $ProcessCreationCategory = New-Object psobject
+    Add-Member -InputObject $ProcessCreationCategory -MemberType NoteProperty -Name Category -Value 'Process Creation (Command Line)'
+    $RegistryKey = 'Registry::HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit\'
+    $RegistryKeySetting = 'ProcessCreationIncludeCmdLine_Enabled'
+    $RegistryKeyValue = (Get-ItemProperty $RegistryKey).ProcessCreationIncludeCmdLine_Enabled
+    if ($RegistryKeyValue -eq 1) {
+        Add-Member -InputObject $ProcessCreationCategory -MemberType NoteProperty -Name Setting -Value 'Success' 
+    } else { 
+        Add-Member -InputObject $ProcessCreationCategory -MemberType NoteProperty -Name Setting -Value 'No Auditing'
+    }
+    $AuditpolSettings = $AuditpolSettings + $ProcessCreationCategory
+    
+    return $AuditpolSettings | Sort-Object -Property Setting -Descending
 }
 
-Enable-Logging 
+Get-AuditpolSettings
+
+<# REFERENCES
+https://stackoverflow.com/questions/5648931/test-if-registry-value-exists
+#>
