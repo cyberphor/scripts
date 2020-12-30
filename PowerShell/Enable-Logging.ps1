@@ -88,7 +88,23 @@ function Get-AuditpolSettings($Show) {
 }
 
 function Set-AuditpolSettings($Set, $Value) {
+    $Categories = 
+        'Process Creation',
+        'File Share',
+        'File System',
+        'Registry',
+        'Filtering Platform Connection'
+    
+    $Settings = 
+        'Success',
+        'Success and Failure',
+        'No Auditing'
 
+    if ($Categories -contains $Set) {
+        if ($Settings -contains $Value) {
+            Get-AuditpolSettings $Set
+        }
+    }
 }
 
 if ($Show) {
