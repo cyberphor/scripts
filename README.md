@@ -1,5 +1,5 @@
 # Scripts
-> Includes PowerShell, Python, and other scripts.
+> PowerShell, Python, and other scripts.
 
 * [BASH](/BASH/)
 * [Golang](/Golang/)
