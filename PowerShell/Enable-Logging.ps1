@@ -70,22 +70,20 @@ function Get-AuditpolSettings($Show) {
     }
     $AuditpolSettings = $AuditpolSettings + $CmdLineCategory
     
-    if ($Show) {
-        if ($Show -like 'all') {
-            return $AuditpolSettings | Sort-Object -Property Setting -Descending
-        } else {
-            if ($Show -contains 'firewall') {
-                $Show = $Show -replace 'firewall','filter'
-            }
-
-            $Show | 
-            ForEach-Object {
-                $Category = $_
-                if ($AuditpolSettings.Category -like $('*' + $Category + '*')) { 
-                    return $AuditpolSettings | Where-Object { $_.Category -like $('*' + $Category + '*') }
-                } 
-            } | Sort-Object -Property Setting -Descending 
+    if ($Show -like 'all') {
+        return $AuditpolSettings | Sort-Object -Property Setting -Descending
+    } else {
+        if ($Show -contains 'firewall') {
+            $Show = $Show -replace 'firewall','filter'
         }
+
+        $Show | 
+        ForEach-Object {
+            $Category = $_
+            if ($AuditpolSettings.Category -like $('*' + $Category + '*')) { 
+                return $AuditpolSettings | Where-Object { $_.Category -like $('*' + $Category + '*') }
+            } 
+        } | Sort-Object -Property Setting -Descending   
     }
 }
 
