@@ -19,11 +19,11 @@
     Version: 2.0
     Author: Victor Fernandez III
     Creation Date: Tuesday, December 29, 2020
-.REFERENCES
-    https://stackoverflow.com/questions/5648931/test-if-registry-value-exists
-    https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_parameter_sets?view=powershell-7.1
-    https://stackoverflow.com/questions/13533763/powershell-mandatory-parameter-depends-on-another-parameter
-    https://stackoverflow.com/questions/13533763/powershell-mandatory-parameter-depends-on-another-parameter
+    References:
+        https://stackoverflow.com/questions/5648931/test-if-registry-value-exists
+        https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_parameter_sets?view=powershell-7.1
+        https://stackoverflow.com/questions/13533763/powershell-mandatory-parameter-depends-on-another-parameter
+        https://stackoverflow.com/questions/13533763/powershell-mandatory-parameter-depends-on-another-parameter
 #>
 
 Param( 
