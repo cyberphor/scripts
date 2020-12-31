@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Obtains information about computers online and within the specified network range. 
-.EXAMPLES
+.EXAMPLE
     ./Get-AssetInventory.ps1 -NetworkRange 192.168.2.1, 192.168.2.254
 .INPUTS
     None.
