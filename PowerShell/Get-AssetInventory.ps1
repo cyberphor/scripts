@@ -104,9 +104,7 @@ function Get-AssetInventory {
                     (Get-WmiObject -Class Win32_BIOS).SerialNumber
                     (Get-WmiObject -Class Win32_ComputerSystem).UserName
                 }
-                $MacAddress = $Query[0]
-                $SerialNumber = $Query[1]
-                $UserName = $Query[2]
+                $MacAddress, $SerialNumber, $UserName = $Query[0], $Query[1], $Query[2]
             }
             return $Hostname,$MacAddress,$SerialNumber,$UserName
         } | Out-Null
