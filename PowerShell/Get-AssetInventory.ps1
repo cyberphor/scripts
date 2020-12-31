@@ -1,8 +1,41 @@
-Param(
-    [string]$File,
-    [ipaddress]$NetworkId,
-    [switch]$ExportToFile
-)
+<#
+.SYNOPSIS
+    Obtains information about computers online and within the specified network range. 
+.EXAMPLES
+    ./Get-AssetInventory.ps1 -NetworkRange 192.168.2.1, 192.168.2.254
+.INPUTS
+    None.
+.OUTPUTS
+    None.
+.LINK
+    https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
+.NOTES
+    File name: Get-AssetInventory.ps1
+    Version: 7.0
+    Author: Victor Fernandez III
+    Creation Date: Tuesday, December 31,2020
+    References:
+        https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
+        https://social.technet.microsoft.com/Forums/Lync/en-US/ff644fca-1b25-4c8a-9a8a-ce90eb024389/in-powershell-how-do-i-pass-startjob-arguments-to-a-script-using-param-style-arguments?forum=ITCG
+        https://stackoverflow.com/questions/8751187/how-to-capture-the-exception-raised-in-the-scriptblock-of-start-job
+        https://ss64.com/ps/start-job.html
+        https://codeandkeep.com/PowerShell-Get-Subnet-NetworkID/
+        https://stackoverflow.com/questions/27613836/how-to-pass-multiple-objects-via-the-pipeline-between-two-functions-in-powershel
+        https://info.sapien.com/index.php/scripting/scripting-how-tos/take-values-from-the-pipeline-in-powershell
+        https://stackoverflow.com/questions/48946924/powershell-function-not-accepting-array-of-objects
+        https://www.reddit.com/r/PowerShell/comments/6eyhpv/whats_the_quickest_way_to_ping_a_computer/
+        https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/sort-ipv4-addresses-correctly
+        https://www.sans.org/reading-room/whitepapers/critical/leveraging-asset-inventory-database-37507
+        https://stackoverflow.com/questions/17696149/invoke-command-in-a-background-job
+        https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
+        https://devblogs.microsoft.com/scripting/two-simple-powershell-methods-to-remove-the-last-letter-of-a-string/
+        https://www.pluralsight.com/blog/tutorials/measure-powershell-scripts-speed
+        https://stackoverflow.com/questions/34113755/need-to-make-a-powershell-script-faster/34114444
+        https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
+        https://stackoverflow.com/questions/55971796/powershell-parameters-validation-and-positioning
+#>
+
+#Param([Parameter(Mandatory,Position = 0)][System.Net.IPAddress[]]$NetworkRange)
 
 function Get-Credentials {
     $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -15,128 +48,86 @@ function Get-Credentials {
     }
 }
 
-function Get-Assets {
-    if ($File) {
-        $Addresses = Get-Content $File
-    } elseif ($NetworkId) {
-        $Addresses = @()
-        1..254 |
-        ForEach-Object {
-            $Addresses += $NetworkId -replace ".$","$_"
-        }
-    } else {
-        $Addresses = @()
-        $NetworkId = 
-            '192.168.2.0',
-            '192.168.3.0'
-        $NetworkId |
-        ForEach-Object {
-            $Network = $_
-            1..254 |
-            ForEach-Object {
-                $Addresses += $Network -replace ".$","$_"
-            }
+function Get-AssetInventory {
+    #$Start, $End = $NetworkRange
+    #$Start.ToString().Split('.')[3]
+    #$End.ToString().Split('.')[3]
+
+    $Addresses = @()
+    1..254 | foreach { $Addresses = $Addresses + "192.168.2.$_" }
+    $Headcount = $Addresses.Count
+
+    Get-Event -SourceIdentifier "Ping-*" | Remove-Event
+    Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event
+
+    $Addresses | 
+    foreach {
+        [string]$Event = "Ping-" + $_
+        New-Variable -Name $Event -Value (New-Object System.Net.NetworkInformation.Ping)
+        Register-ObjectEvent -InputObject (Get-Variable $Event -ValueOnly) -EventName PingCompleted -SourceIdentifier $Event
+        (Get-Variable $Event -ValueOnly).SendAsync($_,2000,$Event)
+        Remove-Variable $Event
+    }
+
+    while ($Pending -lt $Headcount) {
+        Wait-Event -SourceIdentifier "Ping-*" | Out-Null
+        Start-Sleep -Milliseconds 10
+        $Pending = (Get-Event -SourceIdentifier "Ping-*").Count
+    }
+
+    $Assets = @()
+    Get-Event -SourceIdentifier "Ping-*" | 
+    foreach { 
+        if ($_.SourceEventArgs.Reply.Status -eq 'Success') {
+            $Asset = New-Object -TypeName psobject
+            $IpAddress = ($_.SourceEventArgs.Reply).Address.IpAddressToString
+            Remove-Event $_.SourceIdentifier
+            Unregister-Event $_.SourceIdentifier
+            Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress -Value $IpAddress
+            $Assets += $Asset
         }
     }
-        
-    $Addresses | 
-    ForEach-Object {
-        $Timeout = 50
-        $Ping = New-Object System.Net.NetworkInformation.Ping
-        $Status = $Ping.Send($_, $Timeout).Status
-        if ($Status -eq 'Success') {
-            Start-Job -Name $_ -ArgumentList $_ -ScriptBlock {
-                $IpAddress = $args[0] 
-                $HostName = (Resolve-DnsName $args[0] -ErrorAction Ignore).NameHost
-                if ($HostName) {
-                    Invoke-Command -ComputerName $HostName -ArgumentList $IpAddress,$HostName -ErrorAction Ignore -ScriptBlock {
-                        $IpAddress = $args[0]
-                        $MacAddress = Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
+
+    $Assets |
+    foreach {
+        Start-Job -Name "Query-$_.IpAddress" -ArgumentList $_.IpAddress -ScriptBlock {
+            $IpAddress = $args[0]
+            $Hostname = [System.Net.Dns]::GetHostEntryAsync($IpAddress).Result.HostName
+            if ($Hostname -eq $null) {
+                $Hostname, $MacAddress, $SerialNumber, $UserName = '-', '-', '-', '-'
+            } else { 
+                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $IpAddress -ScriptBlock {
+                    $IpAddress = $args[0]
+                    Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
                             Where-Object { $_.IpAddress -eq $IpAddress } | 
                             Select -ExpandProperty MacAddress
-                        $SerialNumber = (Get-WmiObject -Class Win32_BIOS).SerialNumber
-                        $UserName = (Get-WmiObject -Class Win32_ComputerSystem).UserName
-                        $MacAddress,$args[1],$SerialNumber,$UserName
-                    }
-                } 
-            } | Out-Null
-            
-            $Asset = New-Object -TypeName psobject
-            Add-Member -InputObject $Asset -MemberType NoteProperty -Name Address -Value $_
-            return $Asset
-        }
+                    (Get-WmiObject -Class Win32_BIOS).SerialNumber
+                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                }
+                $MacAddress = $Query[0]
+                $SerialNumber = $Query[1]
+                $UserName = $Query[2]
+            }
+            return $Hostname,$MacAddress,$SerialNumber,$UserName
+        } | Out-Null
     }
-}
 
-function Get-Attributes {
-    Param([Parameter(ValueFromPipeline)]$Asset)
-    Process {
-        While ((Get-Job -Name $Asset.Address).State -ne 'Completed') {
-            Start-Sleep -Milliseconds 50
-        }
-
-        $Attributes = (Receive-Job -Name $Asset.Address)
-        Remove-Job -Name $Asset.Address
-
-        if ($Attributes -ne $null) {
-            $MacAddress = $Attributes[0]
-            $HostName = $Attributes[1]
-            $SerialNumber = $Attributes[2]
-            $UserName = $Attributes[3]
-        } else {
-            $MacAddress = '-'
-            $HostName = '-'
-            $SerialNumber = '-'
-            $UserName = '-'
-        }
-
-        Add-Member -InputObject $Asset -MemberType NoteProperty -Name MacAddress -Value $MacAddress
-        Add-Member -InputObject $Asset -MemberType NoteProperty -Name HostName -Value $HostName
-        Add-Member -InputObject $Asset -MemberType NoteProperty -Name SerialNumber -Value $SerialNumber
-        Add-Member -InputObject $Asset -MemberType NoteProperty -Name UserName -Value $UserName
-        Clear-Variable MacAddress,HostName,SerialNumber,UserName
-        $Asset
+    While ((Get-Job -Name "Query-*").State -ne 'Completed') {
+        Start-Sleep -Milliseconds 10
     }
-}
 
-function New-AssetInventory {
-    Get-Assets |
-    Get-Attributes |
-    Sort-Object { $_.Address -as [Version] }
+    $Assets |
+    foreach {
+        $Job = Receive-Job -Name "Query-$_.IpAddress"
+        Add-Member -InputObject $_ -MemberType NoteProperty -Name MacAddress -Value $Job[1]
+        Add-Member -InputObject $_ -MemberType NoteProperty -Name HostName -Value $Job[0]
+        Add-Member -InputObject $_ -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
+        Add-Member -InputObject $_ -MemberType NoteProperty -Name UserName -Value $Job[3]
+        # Remove-Job -Name "Query-$_.IpAddress"
+    }
+    return $Assets | Sort-Object { $_.IpAddress -as [Version] }
 }
 
 Get-Credentials
-if ($ExportToFile) {
-    $Dropbox = "C:\Users\Public\Documents\AssetInventory\"
-    if (-not(Test-Path $Dropbox)) {
-        New-Item -ItemType Directory $Dropbox  | 
-        Out-Null
-    }
-    $CsvFile = $Dropbox + "AssetInventory_$(Get-Date -Format yyyy-MM-dd_hhmm).csv"
-    New-AssetInventory |
-    Export-Csv -NoTypeInformation $CsvFile
-    Invoke-Item $Dropbox 
-} else {
-    New-AssetInventory |
-    Format-Table -AutoSize
-}
-
-<# REFERENCES
-https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
-https://social.technet.microsoft.com/Forums/Lync/en-US/ff644fca-1b25-4c8a-9a8a-ce90eb024389/in-powershell-how-do-i-pass-startjob-arguments-to-a-script-using-param-style-arguments?forum=ITCG
-https://stackoverflow.com/questions/8751187/how-to-capture-the-exception-raised-in-the-scriptblock-of-start-job
-https://ss64.com/ps/start-job.html
-https://codeandkeep.com/PowerShell-Get-Subnet-NetworkID/
-https://stackoverflow.com/questions/27613836/how-to-pass-multiple-objects-via-the-pipeline-between-two-functions-in-powershel
-https://info.sapien.com/index.php/scripting/scripting-how-tos/take-values-from-the-pipeline-in-powershell
-https://stackoverflow.com/questions/48946924/powershell-function-not-accepting-array-of-objects
-https://www.reddit.com/r/PowerShell/comments/6eyhpv/whats_the_quickest_way_to_ping_a_computer/
-https://community.idera.com/database-tools/powershell/powertips/b/tips/posts/sort-ipv4-addresses-correctly
-https://www.sans.org/reading-room/whitepapers/critical/leveraging-asset-inventory-database-37507
-https://stackoverflow.com/questions/17696149/invoke-command-in-a-background-job
-https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-pscustomobject?view=powershell-7.1
-https://devblogs.microsoft.com/scripting/two-simple-powershell-methods-to-remove-the-last-letter-of-a-string/
-https://www.pluralsight.com/blog/tutorials/measure-powershell-scripts-speed
-https://stackoverflow.com/questions/34113755/need-to-make-a-powershell-script-faster/34114444
-https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
-#>
+Get-AssetInventory |
+Format-Table -AutoSize
