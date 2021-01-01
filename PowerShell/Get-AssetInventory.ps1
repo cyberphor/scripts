@@ -19,7 +19,7 @@
     https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
 .NOTES
     File name: Get-AssetInventory.ps1
-    Version: 7.0
+    Version: 7.2
     Author: Victor Fernandez III
     Creation Date: Tuesday, December 31,2020
     References:
