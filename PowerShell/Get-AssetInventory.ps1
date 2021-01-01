@@ -1,8 +1,16 @@
 <#
 .SYNOPSIS
     Obtains information about computers online and within the specified network range. 
-.EXAMPLES
+.EXAMPLE
     ./Get-AssetInventory.ps1 -FirstAddress 192.168.2.1 -LastAddress 192.168.2.254
+
+    IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
+    ---------    ----------        -------- ------------   --------       -------------    ----------------
+    192.168.2.1  -                 -        -              -              2020-12-31 17:44 -               
+    192.168.2.3  -                 -        -              -              2021-01-01 09:14 -                                     
+    192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
+    192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
+    192.168.2.75 aa:bb:cc:11:22:33 Windows  T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
 .INPUTS
     None.
 .OUTPUTS
@@ -11,7 +19,7 @@
     https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
 .NOTES
     File name: Get-AssetInventory.ps1
-    Version: 7.1
+    Version: 7.0
     Author: Victor Fernandez III
     Creation Date: Tuesday, December 31,2020
     References:
@@ -55,6 +63,8 @@ function Get-AssetInventory($FirstAddress, $LastAddress) {
     # if input has /, generate a range
     # if input has -, split into a range
     # if two addresses, generate a range
+    # add column for device class, description, notes, etc.
+    # add output to highlight what changed
 
     $Inventory = './AssetInventory.csv'
     if (Test-Path $Inventory) {
