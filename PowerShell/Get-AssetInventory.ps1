@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Obtains information about computers online and within the specified network range. 
-.EXAMPLE
-    ./Get-AssetInventory.ps1 -NetworkRange 192.168.2.1, 192.168.2.254
+.EXAMPLES
+    ./Get-AssetInventory.ps1 -FirstAddress 192.168.2.1 -LastAddress 192.168.2.254
 .INPUTS
     None.
 .OUTPUTS
@@ -11,7 +11,7 @@
     https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
 .NOTES
     File name: Get-AssetInventory.ps1
-    Version: 7.0
+    Version: 7.1
     Author: Victor Fernandez III
     Creation Date: Tuesday, December 31,2020
     References:
@@ -35,7 +35,10 @@
         https://stackoverflow.com/questions/55971796/powershell-parameters-validation-and-positioning
 #>
 
-#Param([Parameter(Mandatory,Position = 0)][System.Net.IPAddress[]]$NetworkRange)
+Param(
+    [Parameter(Mandatory, Position = 0)][System.Net.IPAddress]$FirstAddress,
+    [Parameter(Mandatory, Position = 1)][System.Net.IPAddress]$LastAddress
+)
 
 function Get-Credentials {
     $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -48,14 +51,28 @@ function Get-Credentials {
     }
 }
 
-function Get-AssetInventory {
-    #$Start, $End = $NetworkRange
-    #$Start.ToString().Split('.')[3]
-    #$End.ToString().Split('.')[3]
+function Get-AssetInventory($FirstAddress, $LastAddress) {
+    # if input has /, generate a range
+    # if input has -, split into a range
+    # if two addresses, generate a range
 
-    $Addresses = @()
-    1..254 | foreach { $Addresses = $Addresses + "192.168.2.$_" }
-    $Headcount = $Addresses.Count
+    $Inventory = './AssetInventory.csv'
+    if (Test-Path $Inventory) {
+        $Inventory = Import-Csv $Inventory 
+    } else { New-Item -ItemType File -Name $Inventory }
+
+    $FirstNetworkID = $FirstAddress.ToString().Split('.')[0..2] -join '.'
+    $LastNetworkID = $LastAddress.ToString().Split('.')[0..2] -join '.'
+
+    if ($EndNetworkID -eq $StartNetworkID) {
+        $Addresses = @()
+        $FirstAddress.ToString().Split('.')[3]..$LastAddress.ToString().Split('.')[3] |
+        foreach { 
+            $Address = $FirstNetworkID + '.' + $_ 
+            $Addresses += $Address
+        }
+        $Headcount = $Addresses.Count
+    } else { break }
 
     Get-Event -SourceIdentifier "Ping-*" | Remove-Event
     Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event
@@ -96,36 +113,54 @@ function Get-AssetInventory {
             if ($Hostname -eq $null) {
                 $Hostname, $MacAddress, $SerialNumber, $UserName = '-', '-', '-', '-'
             } else { 
-                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $IpAddress -ScriptBlock {
+                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $IpAddress -ErrorAction Ignore -ScriptBlock {
                     $IpAddress = $args[0]
-                    Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
-                            Where-Object { $_.IpAddress -eq $IpAddress } | 
+                    Get-WmiObject -Class Win32_NetworkAdapterConfiguration | Where-Object { $_.IpAddress -eq $IpAddress } | 
                             Select -ExpandProperty MacAddress
                     (Get-WmiObject -Class Win32_BIOS).SerialNumber
                     (Get-WmiObject -Class Win32_ComputerSystem).UserName
                 }
-                $MacAddress, $SerialNumber, $UserName = $Query[0], $Query[1], $Query[2]
+                if ($Query -eq $null) {
+                    $MacAddress, $SerialNumber, $UserName = '-', '-', '-'
+                } else { 
+                    $MacAddress, $SerialNumber, $UserName = $Query[0], $Query[1], $Query[2]
+                }
             }
             return $Hostname,$MacAddress,$SerialNumber,$UserName
         } | Out-Null
     }
 
-    While ((Get-Job -Name "Query-*").State -ne 'Completed') {
-        Start-Sleep -Milliseconds 10
-    }
+    While ((Get-Job -Name "Query-*").State -ne 'Completed') { Start-Sleep -Milliseconds 10 }
 
     $Assets |
     foreach {
         $Job = Receive-Job -Name "Query-$_.IpAddress"
-        Add-Member -InputObject $_ -MemberType NoteProperty -Name MacAddress -Value $Job[1]
-        Add-Member -InputObject $_ -MemberType NoteProperty -Name HostName -Value $Job[0]
-        Add-Member -InputObject $_ -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
-        Add-Member -InputObject $_ -MemberType NoteProperty -Name UserName -Value $Job[3]
-        # Remove-Job -Name "Query-$_.IpAddress"
+        $Now = $_
+        $Then = $Inventory | Where-Object { $_.IpAddress -eq $Now.IpAddress }
+        Add-Member -InputObject $Now -MemberType NoteProperty -Name MacAddress -Value $Job[1]
+        Add-Member -InputObject $Now -MemberType NoteProperty -Name HostName -Value $Job[0]
+        Add-Member -InputObject $Now -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
+        Add-Member -InputObject $Now -MemberType NoteProperty -Name UserName -Value $Job[3]
+        
+        if ($Then) {
+            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeAdded $Then.DateTimeAdded
+            if ($Now.MacAddress -ne $Then.MacAddress -or
+                $Now.Hostname -ne $Then.Hostname -or 
+                $Now.SerialNumber -ne $Then.SerialNumber -or 
+                $Now.UserName -ne $Then.Username) {
+                Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+            } else {
+                Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value $Then.DateTimeModified
+            }
+        } else {
+            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeAdded -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value '-'
+        }
     }
-    return $Assets | Sort-Object { $_.IpAddress -as [Version] }
+    Remove-Job -Name "Query-*"
+    $Assets | Sort-Object { $_.IpAddress -as [Version] } | Export-Csv -NoTypeInformation './AssetInventory.csv'
+    $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
 }
 
 Get-Credentials
-Get-AssetInventory |
-Format-Table -AutoSize
+Get-AssetInventory $FirstAddress $LastAddress 
