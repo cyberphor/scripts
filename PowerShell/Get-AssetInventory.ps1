@@ -1,30 +1,99 @@
-<#
-.SYNOPSIS
-    Obtains information about computers online and within the specified network range. 
-.EXAMPLE
-    ./Get-AssetInventory.ps1 -FirstAddress 192.168.2.1 -LastAddress 192.168.2.254
+Param([Parameter(Mandatory)][string[]]$Network)
 
-    IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
-    ---------    ----------        -------- ------------   --------       -------------    ----------------
-    192.168.2.1  -                 -        -              -              2020-12-31 17:44 -               
-    192.168.2.3  -                 -        -              -              2021-01-01 09:14 -                                     
-    192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
-    192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
-    192.168.2.75 aa:bb:cc:11:22:33 Windows  T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
-.INPUTS
-    None.
-.OUTPUTS
-    None.
-.LINK
-    https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
-.NOTES
-    File name: Get-AssetInventory.ps1
-    Version: 7.2
-    Author: Victor Fernandez III
-    Creation Date: Tuesday, December 31,2020
-    References:
+function Get-Credentials {
+    $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $AdminId = [Security.Principal.WindowsBuiltInRole]::Administrator
+    $CurrentUser = New-Object Security.Principal.WindowsPrincipal($UserId)
+    $RunningAsAdmin = $CurrentUser.IsInRole($AdminId)
+    if (-not $RunningAsAdmin) { 
+        Write-Output "`n[x] This script requires administrator privileges.`n"
+        break
+    }
+}
+
+function Get-IpAddressRange {
+    Param([Parameter(Mandatory)][string[]]$Network)
+
+    function ConvertIpAddressTo-BinaryString {
+        Param([IPAddress]$IpAddress)
+        $Integer = $IpAddress.Address
+        $ReverseIpAddress = [IPAddress][String]$Integer
+        $BinaryString = [Convert]::toString($ReverseIpAddress.Address,2)
+        return $BinaryString
+    }
+
+    function ConvertBinaryStringTo-IpAddress {
+        Param($BinaryString)
+        $Integer = [System.Convert]::ToInt64($BinaryString,2).ToString()
+        $IpAddress = ([System.Net.IPAddress]$Integer).IpAddressToString
+        return $IpAddress
+    }
+
+    $IpAddressRange = @()
+    $Network |
+    foreach {
+        if ($_.Contains('/')) {
+            $NetworkId = $_.Split('/')[0]
+            $SubnetMask = $_.Split('/')[1]
+            if ([ipaddress]$NetworkId -and ($SubnetMask -eq 32)) {
+                $IpAddressRange += $NetworkId          
+            } elseif ([ipaddress]$NetworkId -and ($SubnetMask -le 32)) {
+                $Wildcard = 32 - $SubnetMask
+                $NetworkIdBinary = ConvertIpAddressTo-BinaryString $NetworkId
+                
+                $NetworkIdIpAddressBinary = $NetworkIdBinary.SubString(0,$SubnetMask) + ('0' * $Wildcard)
+                $BroadcastIpAddressBinary = $NetworkIdBinary.SubString(0,$SubnetMask) + ('1' * $Wildcard)
+                
+                $NetworkIdIpAddress = ConvertBinaryStringTo-IpAddress $NetworkIdIpAddressBinary
+                $BroadcastIpAddress = ConvertBinaryStringTo-IpAddress $BroadcastIpAddressBinary
+                
+                $NetworkIdInt32 = [convert]::ToInt32($NetworkIdIpAddressBinary,2)
+                $BroadcastIdInt32 = [convert]::ToInt32($BroadcastIpAddressBinary,2)
+
+                $NetworkIdInt32..$BroadcastIdInt32 | 
+                foreach {
+                    $BinaryString = [convert]::ToString($_,2)
+                    $Address = ConvertBinaryStringTo-IpAddress $BinaryString
+                    if ($Address -ne $NetworkIdIpAddress -and $Address -ne $BroadcastIpAddress) {
+                       $IpAddressRange += $Address
+                    }
+                }            
+            }
+        }
+    }
+
+    return $IpAddressRange
+}
+
+function Get-AssetInventory {
+    <#
+        .SYNOPSIS
+        Given an IP address range, returns information about computers discovered online. 
+
+        .PARAMETER Network
+        Specifies the network ID in CIDR notation.
+
+        .INPUTS
+        None. You cannot pipe objects to Get-AssetInventory.
+    
+        .OUTPUTS
+        System.Array. Get-AssetInventory returns an array of custom PS objects.
+
+        .EXAMPLE
+        ./Get-AssetInventory.ps1 -Network 192.168.2.0/24
+        IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
+        ---------    ----------        -------- ------------   --------       -------------    ----------------
+        192.168.2.1  -                 -        -              -              2020-12-31 17:44 -               
+        192.168.2.3  -                 -        -              -              2021-01-01 09:14 -                                     
+        192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
+        192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
+        192.168.2.75 aa:bb:cc:11:22:33 Windows  T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
+
+        .LINK
+        https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
+
+        .NOTES
         https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
-        https://social.technet.microsoft.com/Forums/Lync/en-US/ff644fca-1b25-4c8a-9a8a-ce90eb024389/in-powershell-how-do-i-pass-startjob-arguments-to-a-script-using-param-style-arguments?forum=ITCG
         https://stackoverflow.com/questions/8751187/how-to-capture-the-exception-raised-in-the-scriptblock-of-start-job
         https://ss64.com/ps/start-job.html
         https://codeandkeep.com/PowerShell-Get-Subnet-NetworkID/
@@ -41,53 +110,24 @@
         https://stackoverflow.com/questions/34113755/need-to-make-a-powershell-script-faster/34114444
         https://gallery.technet.microsoft.com/scriptcenter/Fast-asynchronous-ping-IP-d0a5cf0e
         https://stackoverflow.com/questions/55971796/powershell-parameters-validation-and-positioning
-#>
+        https://social.technet.microsoft.com/Forums/Lync/en-US/ff644fca-1b25-4c8a-9a8a-ce90eb024389/
+            in-powershell-how-do-i-pass-startjob-arguments-to-a-script-using-param-style-arguments?forum=ITCG
+    #>
 
-Param(
-    [Parameter(Mandatory, Position = 0)][System.Net.IPAddress]$FirstAddress,
-    [Parameter(Mandatory, Position = 1)][System.Net.IPAddress]$LastAddress
-)
-
-function Get-Credentials {
-    $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $AdminId = [Security.Principal.WindowsBuiltInRole]::Administrator
-    $CurrentUser = New-Object Security.Principal.WindowsPrincipal($UserId)
-    $RunningAsAdmin = $CurrentUser.IsInRole($AdminId)
-    if (-not $RunningAsAdmin) { 
-        Write-Output "`n[x] This script requires administrator privileges.`n"
-        break
-    }
-}
-
-function Get-AssetInventory($FirstAddress, $LastAddress) {
-    # if input has /, generate a range
-    # if input has -, split into a range
-    # if two addresses, generate a range
-    # add column for device class, description, notes, etc.
-    # add output to highlight what changed
+    Get-Credentials 
+    $IpAddressRange = Get-IpAddressRange $Network
 
     $Inventory = './AssetInventory.csv'
     if (Test-Path $Inventory) {
         $Inventory = Import-Csv $Inventory 
-    } else { New-Item -ItemType File -Name $Inventory }
-
-    $FirstNetworkID = $FirstAddress.ToString().Split('.')[0..2] -join '.'
-    $LastNetworkID = $LastAddress.ToString().Split('.')[0..2] -join '.'
-
-    if ($EndNetworkID -eq $StartNetworkID) {
-        $Addresses = @()
-        $FirstAddress.ToString().Split('.')[3]..$LastAddress.ToString().Split('.')[3] |
-        foreach { 
-            $Address = $FirstNetworkID + '.' + $_ 
-            $Addresses += $Address
-        }
-        $Headcount = $Addresses.Count
-    } else { break }
+    } else { 
+        New-Item -ItemType File -Name $Inventory
+    }
 
     Get-Event -SourceIdentifier "Ping-*" | Remove-Event
     Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event
 
-    $Addresses | 
+    $IpAddressRange | 
     foreach {
         [string]$Event = "Ping-" + $_
         New-Variable -Name $Event -Value (New-Object System.Net.NetworkInformation.Ping)
@@ -96,7 +136,7 @@ function Get-AssetInventory($FirstAddress, $LastAddress) {
         Remove-Variable $Event
     }
 
-    while ($Pending -lt $Headcount) {
+    while ($Pending -lt $IpAddressRange.Count) {
         Wait-Event -SourceIdentifier "Ping-*" | Out-Null
         Start-Sleep -Milliseconds 10
         $Pending = (Get-Event -SourceIdentifier "Ping-*").Count
@@ -117,26 +157,33 @@ function Get-AssetInventory($FirstAddress, $LastAddress) {
 
     $Assets |
     foreach {
-        Start-Job -Name "Query-$_.IpAddress" -ArgumentList $_.IpAddress -ScriptBlock {
-            $IpAddress = $args[0]
-            $Hostname = [System.Net.Dns]::GetHostEntryAsync($IpAddress).Result.HostName
+        $IpAddress = $_.IpAddress
+        Start-Job -Name "Query-$IpAddress" -ArgumentList $IpAddress -ScriptBlock {
+            $Hostname = [System.Net.Dns]::GetHostEntryAsync($args[0]).Result.HostName
             if ($Hostname -eq $null) {
-                $Hostname, $MacAddress, $SerialNumber, $UserName = '-', '-', '-', '-'
+                $Hostname = '-'
+                $MacAddress = '-'
+                $SerialNumber = '-'
+                $UserName = '-'
             } else { 
-                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $IpAddress -ErrorAction Ignore -ScriptBlock {
-                    $IpAddress = $args[0]
-                    Get-WmiObject -Class Win32_NetworkAdapterConfiguration | Where-Object { $_.IpAddress -eq $IpAddress } | 
-                            Select -ExpandProperty MacAddress
+                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $args[0] -ErrorAction Ignore -ScriptBlock {
                     (Get-WmiObject -Class Win32_BIOS).SerialNumber
                     (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                     Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
+                        Where-Object { $_.IpAddress -eq $args[0] } | 
+                        Select -ExpandProperty MacAddress
                 }
                 if ($Query -eq $null) {
-                    $MacAddress, $SerialNumber, $UserName = '-', '-', '-'
+                    $MacAddress = '-'
+                    $SerialNumber = '-'
+                    $UserName = '-'
                 } else { 
-                    $MacAddress, $SerialNumber, $UserName = $Query[0], $Query[1], $Query[2]
+                    $MacAddress = $Query[2]
+                    $SerialNumber = $Query[0]
+                    $UserName = $Query[1]
                 }
             }
-            return $Hostname,$MacAddress,$SerialNumber,$UserName
+            return $Hostname, $MacAddress, $SerialNumber, $UserName
         } | Out-Null
     }
 
@@ -144,7 +191,8 @@ function Get-AssetInventory($FirstAddress, $LastAddress) {
 
     $Assets |
     foreach {
-        $Job = Receive-Job -Name "Query-$_.IpAddress"
+        $IpAddress = $_.IpAddress
+        $Job = Receive-Job -Name "Query-$IpAddress"
         $Now = $_
         $Then = $Inventory | Where-Object { $_.IpAddress -eq $Now.IpAddress }
         Add-Member -InputObject $Now -MemberType NoteProperty -Name MacAddress -Value $Job[1]
@@ -172,5 +220,4 @@ function Get-AssetInventory($FirstAddress, $LastAddress) {
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
 }
 
-Get-Credentials
-Get-AssetInventory $FirstAddress $LastAddress 
+Get-AssetInventory $Network
