@@ -121,11 +121,8 @@ function Get-AssetInventory {
     $IpAddressRange = Get-IpAddressRange $Network
 
     $Inventory = './AssetInventory.csv'
-    if (Test-Path $Inventory) {
-        $Inventory = Import-Csv $Inventory 
-    } else { 
-        New-Item -ItemType File -Name $Inventory | Out-Null
-    }
+    if (Test-Path $Inventory) { $Inventory = Import-Csv $Inventory } 
+    else { New-Item -ItemType File -Name $Inventory | Out-Null }
 
     Get-Event -SourceIdentifier "Ping-*" | Remove-Event
     Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event
@@ -158,11 +155,9 @@ function Get-AssetInventory {
 
             Start-Job -Name "Query-$IpAddress" -ArgumentList $IpAddress -ScriptBlock {
                 $Hostname = [System.Net.Dns]::GetHostEntryAsync($args[0]).Result.HostName
+                $MacAddress, $SerialNumber, $UserName = '-', '-', '-'
                 if ($Hostname -eq $null) {
                     $Hostname = '-'
-                    $MacAddress = '-'
-                    $SerialNumber = '-'
-                    $UserName = '-'
                 } else { 
                     $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $args[0] -ErrorAction Ignore -ScriptBlock {
                         (Get-WmiObject -Class Win32_BIOS).SerialNumber
@@ -171,11 +166,7 @@ function Get-AssetInventory {
                             Where-Object { $_.IpAddress -eq $args[0] } | 
                             Select -ExpandProperty MacAddress
                     }
-                    if ($Query -eq $null) {
-                        $MacAddress = '-'
-                        $SerialNumber = '-'
-                        $UserName = '-'
-                    } else { 
+                    if ($Query -ne $null) {
                         $MacAddress = $Query[2]
                         $SerialNumber = $Query[0]
                         $UserName = $Query[1]
@@ -203,7 +194,6 @@ function Get-AssetInventory {
         if ($OldAsset) {
             $CurrentAsset.DateTimeAdded = $OldAsset.DateTimeAdded
             $CurrentAsset.DateTimeModified = $OldAsset.DateTimeModified
-
             if ($CurrentAsset.MacAddress -ne $OldAsset.MacAddress -or
                 $CurrentAsset.Hostname -ne $OldAsset.Hostname -or 
                 $CurrentAsset.SerialNumber -ne $OldAsset.SerialNumber -or 
@@ -212,6 +202,7 @@ function Get-AssetInventory {
             }
         }
     }
+
     Remove-Job -Name "Query-*"
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Export-Csv -NoTypeInformation './AssetInventory.csv'
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
@@ -223,6 +214,4 @@ if ($Monitor) {
         Get-AssetInventory $Network
         Start-Sleep -Seconds 300
     }
-} else {
-    Get-AssetInventory $Network
-}
+} else { Get-AssetInventory $Network }
