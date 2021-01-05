@@ -1,4 +1,7 @@
-Param([Parameter(Mandatory)][string[]]$Network)
+Param(
+    [Parameter(Mandatory = $false, Position = 0)][switch]$Monitor,
+    [Parameter(Mandatory = $true, Position = 1)][string[]]$Network
+)
 
 function Get-Credentials {
     $UserId = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -121,7 +124,7 @@ function Get-AssetInventory {
     if (Test-Path $Inventory) {
         $Inventory = Import-Csv $Inventory 
     } else { 
-        New-Item -ItemType File -Name $Inventory
+        New-Item -ItemType File -Name $Inventory | Out-Null
     }
 
     Get-Event -SourceIdentifier "Ping-*" | Remove-Event
@@ -152,67 +155,61 @@ function Get-AssetInventory {
             Unregister-Event $_.SourceIdentifier
             Add-Member -InputObject $Asset -MemberType NoteProperty -Name IpAddress -Value $IpAddress
             $Assets += $Asset
-        }
-    }
 
-    $Assets |
-    foreach {
-        $IpAddress = $_.IpAddress
-        Start-Job -Name "Query-$IpAddress" -ArgumentList $IpAddress -ScriptBlock {
-            $Hostname = [System.Net.Dns]::GetHostEntryAsync($args[0]).Result.HostName
-            if ($Hostname -eq $null) {
-                $Hostname = '-'
-                $MacAddress = '-'
-                $SerialNumber = '-'
-                $UserName = '-'
-            } else { 
-                $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $args[0] -ErrorAction Ignore -ScriptBlock {
-                    (Get-WmiObject -Class Win32_BIOS).SerialNumber
-                    (Get-WmiObject -Class Win32_ComputerSystem).UserName
-                     Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
-                        Where-Object { $_.IpAddress -eq $args[0] } | 
-                        Select -ExpandProperty MacAddress
-                }
-                if ($Query -eq $null) {
+            Start-Job -Name "Query-$IpAddress" -ArgumentList $IpAddress -ScriptBlock {
+                $Hostname = [System.Net.Dns]::GetHostEntryAsync($args[0]).Result.HostName
+                if ($Hostname -eq $null) {
+                    $Hostname = '-'
                     $MacAddress = '-'
                     $SerialNumber = '-'
                     $UserName = '-'
                 } else { 
-                    $MacAddress = $Query[2]
-                    $SerialNumber = $Query[0]
-                    $UserName = $Query[1]
+                    $Query = Invoke-Command -ComputerName $Hostname -ArgumentList $args[0] -ErrorAction Ignore -ScriptBlock {
+                        (Get-WmiObject -Class Win32_BIOS).SerialNumber
+                        (Get-WmiObject -Class Win32_ComputerSystem).UserName
+                         Get-WmiObject -Class Win32_NetworkAdapterConfiguration | 
+                            Where-Object { $_.IpAddress -eq $args[0] } | 
+                            Select -ExpandProperty MacAddress
+                    }
+                    if ($Query -eq $null) {
+                        $MacAddress = '-'
+                        $SerialNumber = '-'
+                        $UserName = '-'
+                    } else { 
+                        $MacAddress = $Query[2]
+                        $SerialNumber = $Query[0]
+                        $UserName = $Query[1]
+                    }
                 }
-            }
-            return $Hostname, $MacAddress, $SerialNumber, $UserName
-        } | Out-Null
+                return $Hostname, $MacAddress, $SerialNumber, $UserName
+            } | Out-Null
+        }
     }
 
     While ((Get-Job -Name "Query-*").State -ne 'Completed') { Start-Sleep -Milliseconds 10 }
 
     $Assets |
     foreach {
-        $IpAddress = $_.IpAddress
-        $Job = Receive-Job -Name "Query-$IpAddress"
-        $Now = $_
-        $Then = $Inventory | Where-Object { $_.IpAddress -eq $Now.IpAddress }
-        Add-Member -InputObject $Now -MemberType NoteProperty -Name MacAddress -Value $Job[1]
-        Add-Member -InputObject $Now -MemberType NoteProperty -Name HostName -Value $Job[0]
-        Add-Member -InputObject $Now -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
-        Add-Member -InputObject $Now -MemberType NoteProperty -Name UserName -Value $Job[3]
-        
-        if ($Then) {
-            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeAdded $Then.DateTimeAdded
-            if ($Now.MacAddress -ne $Then.MacAddress -or
-                $Now.Hostname -ne $Then.Hostname -or 
-                $Now.SerialNumber -ne $Then.SerialNumber -or 
-                $Now.UserName -ne $Then.Username) {
-                Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
-            } else {
-                Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value $Then.DateTimeModified
+        $CurrentAsset = $_
+        $Job = Receive-Job -Name "Query-$($CurrentAsset.IpAddress)"
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name MacAddress -Value $Job[1]
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name HostName -Value $Job[0]
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name UserName -Value $Job[3]
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name DateTimeAdded -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name DateTimeModified -Value '-'
+
+        $OldAsset = $Inventory | Where-Object { $_.IpAddress -eq $CurrentAsset.IpAddress }
+        if ($OldAsset) {
+            $CurrentAsset.DateTimeAdded = $OldAsset.DateTimeAdded
+            $CurrentAsset.DateTimeModified = $OldAsset.DateTimeModified
+
+            if ($CurrentAsset.MacAddress -ne $OldAsset.MacAddress -or
+                $CurrentAsset.Hostname -ne $OldAsset.Hostname -or 
+                $CurrentAsset.SerialNumber -ne $OldAsset.SerialNumber -or 
+                $CurrentAsset.UserName -ne $OldAsset.Username) {
+                $CurrentAsset.DateTimeModified = Get-Date -Format 'yyyy-MM-dd HH:mm'
             }
-        } else {
-            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeAdded -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
-            Add-Member -InputObject $Now -MemberType NoteProperty -Name DateTimeModified -Value '-'
         }
     }
     Remove-Job -Name "Query-*"
@@ -220,4 +217,12 @@ function Get-AssetInventory {
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
 }
 
-Get-AssetInventory $Network
+if ($Monitor) {
+    While ($true) {
+        Clear-Host
+        Get-AssetInventory $Network
+        Start-Sleep -Seconds 300
+    }
+} else {
+    Get-AssetInventory $Network
+}
