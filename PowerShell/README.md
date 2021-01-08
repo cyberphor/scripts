@@ -13,8 +13,8 @@ Get-IpAddressRange
 Get-AssetInventory
 ```powershell
 .\Get-AssetInventory.ps1 -Network 192.168.2.0/24
-IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
----------    ----------        -------- ------------   --------       -------------    ----------------
+IpAddress    MacAddress        HostName SerialNumber   UserName       FirstSeen        LastSeen
+---------    ----------        -------- ------------   --------       ---------        --------
 192.168.2.1  -                 -        -              -              2020-12-31 17:44 -               
 192.168.2.3  -                 -        -              -              2021-01-01 09:14 -                                     
 192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
