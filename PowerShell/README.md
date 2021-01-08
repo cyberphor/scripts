@@ -21,3 +21,8 @@ IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAd
 192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
 192.168.2.75 aa:aa:bb:bb:cc:cc DC1      T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
 ```
+
+Format-Color
+```powershell
+Get-ChildItem | Format-Color -Value passwords.txt -BackgroundColor Red -ForegroundColor White
+```
