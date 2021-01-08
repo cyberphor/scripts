@@ -101,12 +101,12 @@ function Get-AssetInventory {
         System.Array. Get-AssetInventory returns an array of custom PS objects.
         .EXAMPLE
         ./Get-AssetInventory.ps1 -Network 192.168.2.0/24
-        IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
+        IpAddress    MacAddress        HostName SerialNumber   UserName       FirstSeen        LastSeen
         ---------    ----------        -------- ------------   --------       -------------    ----------------
-        192.168.2.1  -                 -        -              -              2020-12-31 17:44 -               
-        192.168.2.3  -                 -        -              -              2021-01-01 09:14 -                                     
-        192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
-        192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
+        192.168.2.1  -                 -        -              -              2020-12-31 17:44 2021-01-01 09:30               
+        192.168.2.3  -                 -        -              -              2021-01-01 09:14 2021-01-01 09:30                                     
+        192.168.2.57 -                 -        -              -              2020-12-31 17:44 2021-01-01 09:30               
+        192.168.2.60 -                 -        -              -              2021-01-01 09:33 2021-01-01 09:30                             
         192.168.2.75 aa:bb:cc:11:22:33 Windows  T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
         .LINK
         https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
@@ -139,7 +139,7 @@ function Get-AssetInventory {
     if (Test-Path $Database) { 
         $Inventory = Import-Csv $Database 
     } else { 
-        New-Item -ItemType File -Name $Inventory | Out-Null
+        New-Item -ItemType File -Name $Inventory -ErrorAction Ignore | Out-Null
     }
 
     Get-Event -SourceIdentifier "Ping-*" | Remove-Event -ErrorAction Ignore
@@ -205,20 +205,11 @@ function Get-AssetInventory {
         Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name HostName -Value $Job[0]
         Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name SerialNumber -Value $Job[2]
         Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name UserName -Value $Job[3]
-        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name DateTimeAdded -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
-        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name DateTimeModified -Value '-'
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name FirstSeen -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
+        Add-Member -InputObject $CurrentAsset -MemberType NoteProperty -Name LastSeen -Value $(Get-Date -Format 'yyyy-MM-dd HH:mm')
 
         $OldAsset = $Inventory | Where-Object { $_.IpAddress -eq $CurrentAsset.IpAddress }
-        if ($OldAsset) {
-            $CurrentAsset.DateTimeAdded = $OldAsset.DateTimeAdded
-            $CurrentAsset.DateTimeModified = $OldAsset.DateTimeModified
-            if ($CurrentAsset.MacAddress -ne $OldAsset.MacAddress -or
-                $CurrentAsset.Hostname -ne $OldAsset.Hostname -or 
-                $CurrentAsset.SerialNumber -ne $OldAsset.SerialNumber -or 
-                $CurrentAsset.UserName -ne $OldAsset.Username) {
-                $CurrentAsset.DateTimeModified = Get-Date -Format 'yyyy-MM-dd HH:mm'
-            }
-        }
+        if ($OldAsset) { $CurrentAsset.FirstSeen = $OldAsset.FirstSeen }
     }
 
     $Inventory |
