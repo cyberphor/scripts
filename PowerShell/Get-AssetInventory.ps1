@@ -76,7 +76,6 @@ function Get-AssetInventory {
         Specifies the network ID in CIDR notation.
         .INPUTS
         None. You cannot pipe objects to Get-AssetInventory.
-    
         .OUTPUTS
         System.Array. Get-AssetInventory returns an array of custom PS objects.
         .EXAMPLE
@@ -218,7 +217,7 @@ function Get-AssetInventory {
 if ($Monitor) {
     While ($true) {
         Clear-Host
-        Get-AssetInventory $Network
+        Get-AssetInventory -Network $Network
         Start-Sleep -Seconds 300
     }
-} else { Get-AssetInventory $Network }
+} else { Get-AssetInventory -Network $Network }
