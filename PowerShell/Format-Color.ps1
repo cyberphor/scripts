@@ -19,7 +19,7 @@ function Format-Color {
         .OUTPUTS
         Format-Color returns highlighted strings.  
         .EXAMPLE
-        Get-ChildItem | Format-Table -Value foo.txt -BackgroundColor Red -ForegroundColor White
+        Get-ChildItem | Format-Color -Value foo.txt -BackgroundColor Red -ForegroundColor White
         .LINK
         https://www.bgreco.net/powershell/format-color/
         https://www.github.com/cyberphor/scripts/PowerShell/Format-Color.ps1
