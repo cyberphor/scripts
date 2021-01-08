@@ -25,13 +25,13 @@ function Format-Color {
         https://www.github.com/cyberphor/scripts/PowerShell/Format-Color.ps1
     #>
     
-	$Lines = ($Input | Format-Table -AutoSize | Out-String) -replace "`r", "" -split "`n"
-	foreach ($Line in $Lines) {
+    $Lines = ($Input | Format-Table -AutoSize | Out-String) -replace "`r", "" -split "`n"
+    foreach ($Line in $Lines) {
         foreach ($Pattern in $Value) { 
             if ($Line -match $Value) { $LineMatchesValue = $true }
-            if ($LineMatchesValue) { 
-                Write-Host $Line -BackgroundColor $BackgroundColor -ForegroundColor $ForegroundColor
-            } else { Write-Host $Line }
-	    }
+                if ($LineMatchesValue) { 
+                    Write-Host $Line -BackgroundColor $BackgroundColor -ForegroundColor $ForegroundColor
+                } else { Write-Host $Line }
+	}
     }
 }
