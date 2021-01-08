@@ -72,16 +72,13 @@ function Get-AssetInventory {
     <#
         .SYNOPSIS
         Given an IP address range, returns information about computers discovered online. 
-
         .PARAMETER Network
         Specifies the network ID in CIDR notation.
-
         .INPUTS
         None. You cannot pipe objects to Get-AssetInventory.
     
         .OUTPUTS
         System.Array. Get-AssetInventory returns an array of custom PS objects.
-
         .EXAMPLE
         ./Get-AssetInventory.ps1 -Network 192.168.2.0/24
         IpAddress    MacAddress        HostName SerialNumber   UserName       DateTimeAdded    DateTimeModified
@@ -91,10 +88,8 @@ function Get-AssetInventory {
         192.168.2.57 -                 -        -              -              2020-12-31 17:44 -               
         192.168.2.60 -                 -        -              -              2021-01-01 09:33 -                             
         192.168.2.75 aa:bb:cc:11:22:33 Windows  T6UsW9N8       WINDOWS\Victor 2020-12-31 17:44 2021-01-01 09:30
-
         .LINK
         https://www.github.com/cyberphor/scripts/PowerShell/Get-AssetInventory.ps1
-
         .NOTES
         https://devblogs.microsoft.com/scripting/parallel-processing-with-jobs-in-powershell/
         https://stackoverflow.com/questions/8751187/how-to-capture-the-exception-raised-in-the-scriptblock-of-start-job
@@ -118,14 +113,17 @@ function Get-AssetInventory {
     #>
 
     Get-Credentials 
-    $IpAddressRange = Get-IpAddressRange $Network
+    $IpAddressRange = Get-IpAddressRange -Network $Network
 
-    $Inventory = './AssetInventory.csv'
-    if (Test-Path $Inventory) { $Inventory = Import-Csv $Inventory } 
-    else { New-Item -ItemType File -Name $Inventory | Out-Null }
+    $Database = './AssetInventory.csv'
+    if (Test-Path $Database) { 
+        $Inventory = Import-Csv $Database 
+    } else { 
+        New-Item -ItemType File -Name $Inventory | Out-Null
+    }
 
-    Get-Event -SourceIdentifier "Ping-*" | Remove-Event
-    Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event
+    Get-Event -SourceIdentifier "Ping-*" | Remove-Event -ErrorAction Ignore
+    Get-EventSubscriber -SourceIdentifier "Ping-*" | Unregister-Event -ErrorAction Ignore
 
     $IpAddressRange | 
     foreach {
@@ -203,8 +201,17 @@ function Get-AssetInventory {
         }
     }
 
+    $Inventory |
+    foreach {
+        $IdleAsset = $_
+        $Added = $Assets | Where-Object { $_.IpAddress -eq $IdleAsset.IpAddress }
+        if (-not $Added) {
+            $Assets += $IdleAsset
+        }
+    }
+
     Remove-Job -Name "Query-*"
-    $Assets | Sort-Object { $_.IpAddress -as [Version] } | Export-Csv -NoTypeInformation './AssetInventory.csv'
+    $Assets | Sort-Object { $_.IpAddress -as [Version] } | Export-Csv -NoTypeInformation $Database
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
 }
 
