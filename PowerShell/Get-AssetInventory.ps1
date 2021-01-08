@@ -1,6 +1,7 @@
 Param(
     [Parameter(Mandatory = $false, Position = 0)][switch]$Monitor,
-    [Parameter(Mandatory = $true, Position = 1)][string[]]$Network
+    [Parameter(Mandatory = $true, Position = 1)][string[]]$Network,
+    [Parameter(Mandatory = $false, Position = 2)][string]$Highlight
 )
 
 function Get-Credentials {
@@ -66,6 +67,26 @@ function Get-IpAddressRange {
     }
 
     return $IpAddressRange
+}
+
+function Format-Color {
+    Param(
+        [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline)]$Input,
+        [Parameter(Mandatory = $true, Position = 1)][string]$Value,
+        [Parameter(Mandatory = $true, Position = 2)][string]$BackgroundColor,
+        [Parameter(Mandatory = $true, Position = 3)][string]$ForegroundColor
+    )
+
+	$Lines = ($Input | Format-Table -AutoSize | Out-String) -replace "`r", "" -split "`n"
+	foreach ($Line in $Lines) {
+        foreach ($Pattern in $Value) { 
+            if ($Line -match $Value) { $LineMatchesValue = $true } 
+            else { $LineMatchesValue = $false }
+
+            if ($LineMatchesValue) { Write-Host $Line -BackgroundColor $BackgroundColor -ForegroundColor $ForegroundColor } 
+            else { Write-Host $Line }
+	    }
+    }
 }
 
 function Get-AssetInventory {
@@ -211,7 +232,12 @@ function Get-AssetInventory {
 
     Remove-Job -Name "Query-*"
     $Assets | Sort-Object { $_.IpAddress -as [Version] } | Export-Csv -NoTypeInformation $Database
-    $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
+
+    if ($Highlight) {
+        $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Color -Value $Highlight -BackgroundColor Red -ForegroundColor White
+    } else {
+        $Assets | Sort-Object { $_.IpAddress -as [Version] } | Format-Table -AutoSize
+    }
 }
 
 if ($Monitor) {
