@@ -27,11 +27,12 @@ function Format-Color {
     
     $Lines = ($Input | Format-Table -AutoSize | Out-String) -replace "`r", "" -split "`n"
     foreach ($Line in $Lines) {
-        foreach ($Pattern in $Value) { 
-            if ($Line -match $Value) { $LineMatchesValue = $true }
-                if ($LineMatchesValue) { 
-                    Write-Host $Line -BackgroundColor $BackgroundColor -ForegroundColor $ForegroundColor
-                } else { Write-Host $Line }
+    	foreach ($Pattern in $Value) { 
+            if ($Line -match $Value) { $LineMatchesValue = $true } 
+            else { $LineMatchesValue = $false }
+
+            if ($LineMatchesValue) { Write-Host $Line -BackgroundColor $BackgroundColor -ForegroundColor $ForegroundColor } 
+            else { Write-Host $Line }
 	}
     }
 }
