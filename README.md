@@ -3,6 +3,7 @@
 
 * [BASH](/BASH/)
 * [Golang](/Golang/)
+* [JavaScript](/JavaScript/)
 * [PowerShell](/PowerShell/)
 * [Python](/Python/)
 * [Ruby](/Ruby/)
