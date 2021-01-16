@@ -1,0 +1,41 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+// REFERENCE: http://www.benprins.net/2017/03/01/javascript-jquery-hideshow-fields/
+$(document).ready(function() {
+      $('nobr:contains("Computer Name")').closest('tr').hide(); 
+      $('nobr:contains("Serial Number")').closest('tr').hide();
+      $('nobr:contains("URL")').closest('tr').hide();
+      $('nobr:contains("Folder")').closest('tr').hide();
+});
+
+(function($) {
+    function showHideSharePointFormFields() {
+        var thisDiv = $("select[title='Category']"); 
+        var mmFieldValue = thisDiv.find("option:selected").text();
+		
+        $('nobr:contains("Computer Name")').closest('tr').hide(); 
+        $('nobr:contains("Serial Number")').closest('tr').hide();
+        $('nobr:contains("URL")').closest('tr').hide();
+        $('nobr:contains("Folder")').closest('tr').hide();
+			
+        if (mmFieldValue.indexOf("Computer") > -1) {
+            $('nobr:contains("Computer Name")').closest('tr').show(); 
+            $('nobr:contains("Serial Number")').closest('tr').show();
+        }
+
+        if (mmFieldValue.indexOf("Portal") > -1) {
+            $('nobr:contains("URL")').closest('tr').show(); 
+        }
+
+        if (mmFieldValue.indexOf("Share Drive") > -1) {
+            $('nobr:contains("Folder")').closest('tr').show(); 
+        }
+    }
+
+    $(document).ready(function() {
+        $("select[id^='Category'").on('blur', showHideSharePointFormFields).on('change', showHideSharePointFormFields);
+    }
+);	
+
+}) (window.jQuery);
+</script>
