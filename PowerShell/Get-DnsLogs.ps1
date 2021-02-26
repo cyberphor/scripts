@@ -12,6 +12,7 @@
 #>
 
 $LoggingIsEnabled = (Get-WinEvent -ListLog Microsoft-Windows-DNS-Client/Operational).IsEnabled
+
 if ($LoggingIsEnabled) {
     $SearchCriteria = @{
         LogName = 'Microsoft-Windows-DNS-Client/Operational';
@@ -34,7 +35,7 @@ if ($LoggingIsEnabled) {
         Add-Member -InputObject $Event -MemberType NoteProperty -Name Sid -Value $Sid
         $Event
 
-    } | Sort-Object DnsQuery
+    }
 } else {
     Write-Host '[x] DNS logging is not enabled.'
 }
