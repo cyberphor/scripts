@@ -7,7 +7,9 @@ $SearchBase = Read-Host -Prompt 'Distinguished Name (OU Path in LDAP Format)'
 Get-ADUser -Filter $Filter -SearchBase $SearchBase -Properties LastLogonDate,Description | 
 foreach {
     if ($_.Enabled) {
-        Set-ADUser $_.SamAccountName -Description $('Last Login: ' + $_.LastLogonDate)
+        Set-ADUser $_.SamAccountName -Description $('Last Login - ' + $_.LastLogonDate)
         Disable-ADAccount $_.SamAccountName
     }
 } 
+
+# EXAMPLE OU PATH: OU=Users,OU=HQ,OU=EvilCorp,DC=vanilla,DC=sky,DC=net
