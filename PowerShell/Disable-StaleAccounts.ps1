@@ -12,11 +12,15 @@ if (-not ($DisabledUsersOuExists)) {
     New-ADOrganizationalUnit -Name "Disabled Users" -Path $DomainRoot
 }
 
+$VipUsers = (Get-ADGroup -Identity 'VIP Users').Sid
+
 Get-ADUser -Filter $Filter -SearchBase $SearchBase -Properties LastLogonDate,Description | 
+Where-Object { $VipUsers -notcontains $_.Sid } |
 foreach {
     if ($_.Enabled) {
         Set-ADUser $_.SamAccountName -Description $('Last Login - ' + $_.LastLogonDate)
         Disable-ADAccount $_.SamAccountName
-        Move-ADObject -Identity $_.DistinguishedName -TargetPath $DisabledUsersOu
     }
+
+    Move-ADObject -Identity $_.DistinguishedName -TargetPath $DisabledUsersOu
 } 
