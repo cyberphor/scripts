@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# from getpass import getpass
+from getpass import getpass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 # from netmiko import ConnectHandler
 import ipaddress
