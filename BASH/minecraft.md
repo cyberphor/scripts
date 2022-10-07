@@ -23,10 +23,13 @@ java -Xmx1024M -Xms1024M -jar /minecraft/minecraft-server.jar nogui
 **Step 3.**
 ```bash
 sudo mkdir /etc/systemd/system/minecraft.target.wants/
-sudo mkdir /etc/systemd/system/minecraft.target.wants/minecraft-server.service
 ```
 
 **Step 4.**
+```bash
+sudo vim /etc/systemd/system/minecraft.target.wants/minecraft-server.service
+```
+
 ```bash
 [Unit]
 Description = Minecraft Server
