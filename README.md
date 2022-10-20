@@ -1,13 +1,10 @@
 # Scripts
-> PowerShell, Python, and other scripts.
+![GitHub](https://img.shields.io/github/license/cyberphor/scripts?color=Green) 
+Scripts written in BASH, PowerShell, Python, and other languages. 
 
 * [BASH](/BASH/)
-* [Golang](/Golang/)
 * [JavaScript](/JavaScript/)
 * [PowerShell](/PowerShell/)
 * [Python](/Python/)
 * [Ruby](/Ruby/)
 * [Zeek](/Zeek/)
-
-## Copyright
-This project is licensed under the terms of the [MIT license](/LICENSE).
