@@ -1,5 +1,5 @@
 # Scripts
-![GitHub](https://img.shields.io/github/license/cyberphor/scripts?color=Green) 
+![GitHub](https://img.shields.io/github/license/cyberphor/scripts?color=Green)  
 Scripts written in BASH, PowerShell, Python, and other languages. 
 
 * [BASH](/BASH/)
