@@ -1,4 +1,4 @@
-# Scripts
+# scripts
 ![GitHub](https://img.shields.io/github/license/cyberphor/scripts?color=Green)  
 Scripts written in BASH, PowerShell, Python, and other languages. 
 
