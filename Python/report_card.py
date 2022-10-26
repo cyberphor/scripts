@@ -25,10 +25,11 @@ def parse_grades(file_name):
         tsv_file = file_data.readlines()
         for tsv_row in tsv_file:
             student = tsv_row.split('\t')
-            name = student[1] + " " + student[0]
+            last_name = student[0]
+            first_name = student[1]
             average_score = get_average_score(student[2], student[3], student[4])
             letter_grade = get_letter_grade(average_score)
-            grades.append([name, str(average_score), str(letter_grade)])
+            grades.append([last_name, first_name, str(average_score), str(letter_grade)])
     return grades 
 
 if __name__ == "__main__":
