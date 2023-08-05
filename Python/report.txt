@@ -1,3 +1,0 @@
-Potts	Wayne	99.67	A
-Fernandez	Victor	89.67	B
-Yemm	James	95.0	A
